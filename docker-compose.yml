@@ -1,0 +1,77 @@
+# QuantumHarmony Node Operator
+# One-command deployment for node operators
+
+services:
+  # =====================================================
+  # CORE: QuantumHarmony Blockchain Node
+  # =====================================================
+  node:
+    image: sylvaincormier/quantumharmony-node:latest
+    platform: linux/amd64
+    container_name: quantumharmony-node
+    restart: unless-stopped
+    ports:
+      - "9944:9944"   # RPC/WebSocket
+      - "30333:30333" # P2P
+      - "9615:9615"   # Prometheus metrics
+    volumes:
+      - node-data:/data
+      - ./configs/chain-spec.json:/config/chainspec.json:ro
+    environment:
+      - CHAIN_SPEC=/config/chainspec.json
+      - NODE_NAME=${NODE_NAME:-Operator}
+      - VALIDATOR=false
+      - RPC_CORS=all
+      - RPC_METHODS=Unsafe
+      - BOOTNODES=/ip4/51.79.26.123/tcp/30333/p2p/12D3KooWRaui4w4RJjRYmrK23gBJeM4RHE2qg84zC4w2rUcbqerX,/ip4/51.79.26.168/tcp/30333/p2p/12D3KooWCesdQDJx5A6QSh2V6PsarxnW838Rk4zbSGi2qeVEyZTx
+    networks:
+      - quantum-net
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9944/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # =====================================================
+  # DASHBOARD: Operator Web UI
+  # =====================================================
+  dashboard:
+    image: nginx:alpine
+    container_name: quantumharmony-dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./dashboard:/usr/share/nginx/html:ro
+      - ./configs/nginx-dashboard.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - quantum-net
+    depends_on:
+      - node
+
+  # =====================================================
+  # PROXY: Nginx Reverse Proxy
+  # =====================================================
+  nginx:
+    image: nginx:alpine
+    container_name: quantumharmony-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./configs/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    networks:
+      - quantum-net
+    depends_on:
+      - node
+      - dashboard
+
+networks:
+  quantum-net:
+    driver: bridge
+
+volumes:
+  node-data:

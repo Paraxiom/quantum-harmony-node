@@ -1,89 +1,20 @@
 #!/usr/bin/env python3
 """
-QuantumHarmony Node Operator
-Dashboard + Node Control + RPC Proxy
+QuantumHarmony Dashboard - Standalone Server
+Connects to remote or local node RPC
 """
 import http.server
 import socketserver
 import urllib.request
-import subprocess
-import signal
 import json
 import os
-import time
 import webbrowser
 
-PORT = 9955
-RPC_URL = "http://127.0.0.1:9944"
+PORT = 8080
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(DIRECTORY)
 
-NODE_PROCESS = None
-NODE_LOG = "/tmp/quantumharmony-node.log"
-NODE_BINARY = os.path.join(ROOT_DIR, "quantumharmony-node")
-NODE_NAME = os.environ.get("NODE_NAME", "Operator")
-
-BOOTNODES = [
-    "/ip4/51.79.26.123/tcp/30333/p2p/12D3KooWRaui4w4RJjRYmrK23gBJeM4RHE2qg84zC4w2rUcbqerX",
-    "/ip4/51.79.26.168/tcp/30333/p2p/12D3KooWPkzuqKSCUxRvj8R6bw7VLPCTq27E9yGPLbTwS1sPAxKP"
-]
-
-def start_node():
-    global NODE_PROCESS
-    if NODE_PROCESS and NODE_PROCESS.poll() is None:
-        return {"success": True, "message": "already_running", "pid": NODE_PROCESS.pid}
-
-    if not os.path.exists(NODE_BINARY):
-        return {"success": False, "message": f"Binary not found: {NODE_BINARY}"}
-
-    cmd = [
-        NODE_BINARY,
-        "--name", NODE_NAME,
-        "--rpc-port", "9944",
-        "--port", "30333",
-        "--rpc-cors", "all",
-        "--rpc-methods", "Unsafe",
-        "--rpc-external",
-    ]
-    for bn in BOOTNODES:
-        cmd.extend(["--bootnodes", bn])
-
-    try:
-        log_file = open(NODE_LOG, "w")
-        NODE_PROCESS = subprocess.Popen(cmd, stdout=log_file, stderr=subprocess.STDOUT, preexec_fn=os.setsid)
-        time.sleep(2)
-        return {"success": True, "message": "started", "pid": NODE_PROCESS.pid}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-def stop_node():
-    global NODE_PROCESS
-    if NODE_PROCESS is None or NODE_PROCESS.poll() is not None:
-        NODE_PROCESS = None
-        return {"success": True, "message": "not_running"}
-    try:
-        pid = NODE_PROCESS.pid
-        os.killpg(os.getpgid(pid), signal.SIGTERM)
-        NODE_PROCESS.wait(timeout=10)
-        NODE_PROCESS = None
-        return {"success": True, "message": "stopped", "pid": pid}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
-
-def get_status():
-    global NODE_PROCESS
-    if NODE_PROCESS and NODE_PROCESS.poll() is None:
-        return {"node_running": True, "node_pid": NODE_PROCESS.pid}
-    return {"node_running": False}
-
-def proxy_rpc(body):
-    try:
-        req = urllib.request.Request(RPC_URL, data=body, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            return json.loads(resp.read().decode())
-    except Exception as e:
-        return {"jsonrpc": "2.0", "id": 1, "error": {"code": -32000, "message": str(e)}}
-
+# Default to production testnet, override with env var
+RPC_URL = os.environ.get("RPC_URL", "http://51.79.26.123:9944")
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -104,51 +35,47 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
 
-    def do_GET(self):
-        if self.path == "/status":
-            self.send_json(get_status())
-        elif self.path == "/logs":
-            try:
-                with open(NODE_LOG, "r") as f:
-                    self.send_json({"logs": "".join(f.readlines()[-100:])})
-            except:
-                self.send_json({"logs": ""})
-        else:
-            super().do_GET()
-
     def do_POST(self):
-        length = int(self.headers.get('Content-Length', 0))
-        body = self.rfile.read(length) if length > 0 else b'{}'
-
-        if self.path in ["/node/start", "/start"]:
-            self.send_json(start_node())
-        elif self.path in ["/node/stop", "/stop"]:
-            self.send_json(stop_node())
-        elif self.path in ["/node/restart", "/restart"]:
-            stop_node()
-            time.sleep(1)
-            self.send_json(start_node())
-        elif self.path == "/rpc":
-            self.send_json(proxy_rpc(body))
+        if self.path == "/rpc":
+            length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(length) if length > 0 else b'{}'
+            try:
+                req = urllib.request.Request(
+                    RPC_URL,
+                    data=body,
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    self.send_json(json.loads(resp.read().decode()))
+            except Exception as e:
+                self.send_json({"jsonrpc": "2.0", "id": 1, "error": {"code": -32000, "message": str(e)}})
         else:
             self.send_json({"error": "not found"}, 404)
 
     def log_message(self, format, *args):
-        if "/rpc" not in args[0]:
-            print(f"[{time.strftime('%H:%M:%S')}] {args[0]}")
+        try:
+            msg = str(args[0]) if args else ""
+            if "/rpc" not in msg:
+                print(f"[{__import__('time').strftime('%H:%M:%S')}] {msg}")
+        except:
+            pass
 
 
 if __name__ == '__main__':
     print(f"""
-╔══════════════════════════════════════════════════╗
-║      QuantumHarmony Node Operator                ║
-╠══════════════════════════════════════════════════╣
-║  Dashboard: http://localhost:{PORT}               ║
-║  Node Binary: {NODE_BINARY[:40]}...
-╚══════════════════════════════════════════════════╝
+╔══════════════════════════════════════════════════════════╗
+║         QuantumHarmony Production Testnet                ║
+╠══════════════════════════════════════════════════════════╣
+║  Dashboard:  http://localhost:{PORT}                       ║
+║  Network:    {RPC_URL}                ║
+╚══════════════════════════════════════════════════════════╝
+
+Inject keys via dashboard to participate in block production.
+
+Connect to different node:
+  RPC_URL=http://localhost:9944 python3 run.py
 """)
 
-    # Open browser
     webbrowser.open(f"http://localhost:{PORT}")
 
     with socketserver.TCPServer(("", PORT), Handler) as httpd:
@@ -156,4 +83,3 @@ if __name__ == '__main__':
             httpd.serve_forever()
         except KeyboardInterrupt:
             print("\nShutting down...")
-            stop_node()
