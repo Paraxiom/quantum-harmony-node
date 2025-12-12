@@ -1,0 +1,2382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuantumHarmony Node Operator</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        /* ===========================================
+           DESIGN SYSTEM - Based on 8px Grid
+           Color Palette: 60/30/10 Rule
+           =========================================== */
+        :root {
+            /* 60% - Background Colors */
+            --bg-void: #000000;
+            --bg-primary: #0c0c10;
+            --bg-elevated: #14141a;
+            --bg-surface: #1c1c24;
+
+            /* 30% - Structural Colors (LCARS) */
+            --lcars-gold: #f8a100;
+            --lcars-gold-light: #ffc044;
+            --lcars-gold-dark: #cc8400;
+            --lcars-blue: #5c88da;
+            --lcars-blue-light: #88aaff;
+
+            /* 10% - Accent Colors */
+            --accent-success: #22c997;
+            --accent-danger: #ef5350;
+            --accent-warning: #ffb74d;
+
+            /* Text Colors - High Contrast */
+            --text-primary: #ffffff;
+            --text-secondary: #b0b0c0;
+            --text-muted: #707080;
+            --text-on-color: #0c0c10;
+
+            /* Spacing Scale (8px base) */
+            --space-1: 4px;
+            --space-2: 8px;
+            --space-3: 16px;
+            --space-4: 24px;
+            --space-5: 32px;
+            --space-6: 48px;
+
+            /* Typography Scale */
+            --text-xs: 10px;
+            --text-sm: 12px;
+            --text-base: 14px;
+            --text-lg: 18px;
+            --text-xl: 24px;
+            --text-2xl: 32px;
+
+            /* Radii - LCARS characteristic */
+            --radius-sm: 4px;
+            --radius-md: 8px;
+            --radius-lg: 16px;
+            --radius-pill: 100px;
+            --radius-lcars: 40px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg-void);
+            color: var(--text-primary);
+            font-family: 'Rajdhani', system-ui, sans-serif;
+            font-weight: 500;
+            line-height: 1.5;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ===========================================
+           LCARS FRAME STRUCTURE
+           =========================================== */
+        .lcars-frame {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            grid-template-rows: auto 1fr auto;
+            min-height: 100vh;
+            gap: 3px;
+            padding: var(--space-2);
+        }
+
+        /* Header Bar */
+        .lcars-header {
+            grid-column: 1 / -1;
+            display: flex;
+            height: 72px;
+        }
+
+        .header-cap {
+            width: 200px;
+            background: var(--lcars-gold);
+            border-radius: var(--radius-lcars) 0 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-3);
+        }
+
+        .header-cap img {
+            height: 48px;
+            width: auto;
+            filter: brightness(0);
+        }
+
+        .header-bar {
+            flex: 1;
+            background: var(--lcars-gold);
+            display: flex;
+            align-items: center;
+            padding: 0 var(--space-5);
+        }
+
+        .header-title {
+            font-family: 'Orbitron', monospace;
+            font-size: var(--text-xl);
+            font-weight: 600;
+            color: var(--text-on-color);
+            letter-spacing: 3px;
+        }
+
+        .header-end {
+            width: 100px;
+            background: var(--lcars-blue);
+            border-radius: 0 var(--radius-lcars) 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .status-indicator {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent-danger);
+            box-shadow: 0 0 12px var(--accent-danger);
+            transition: all 0.3s ease;
+        }
+
+        .status-indicator.connected {
+            background: var(--accent-success);
+            box-shadow: 0 0 12px var(--accent-success);
+        }
+
+        /* Sidebar Navigation */
+        .lcars-sidebar {
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            padding: var(--space-3) 0;
+            border-radius: 0 0 0 var(--radius-lcars);
+        }
+
+        .sidebar-accent {
+            height: 24px;
+            background: var(--lcars-gold);
+            margin: 0 var(--space-2) var(--space-4) var(--space-2);
+            border-radius: var(--radius-pill);
+        }
+
+        .nav-btn {
+            background: var(--lcars-gold-dark);
+            border: none;
+            color: var(--text-on-color);
+            font-family: 'Orbitron', monospace;
+            font-size: var(--text-sm);
+            font-weight: 600;
+            padding: var(--space-3) var(--space-3);
+            margin: 2px var(--space-2) 2px 0;
+            border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.15s ease;
+            letter-spacing: 1px;
+        }
+
+        .nav-btn:hover {
+            background: var(--lcars-gold);
+        }
+
+        .nav-btn.active {
+            background: var(--accent-success);
+        }
+
+        .nav-spacer {
+            flex: 1;
+        }
+
+        /* Main Content Area */
+        .lcars-main {
+            background: var(--bg-primary);
+            border-radius: 0 0 var(--radius-lcars) 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .content-header {
+            background: var(--lcars-gold);
+            padding: var(--space-2) var(--space-4);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .content-label {
+            font-family: 'Orbitron', monospace;
+            font-size: var(--text-xs);
+            font-weight: 600;
+            color: var(--text-on-color);
+            letter-spacing: 1px;
+        }
+
+        .content-area {
+            flex: 1;
+            padding: var(--space-4);
+            overflow-y: auto;
+        }
+
+        /* Footer Bar */
+        .lcars-footer {
+            grid-column: 1 / -1;
+            display: flex;
+            height: 48px;
+        }
+
+        .footer-cap {
+            width: 200px;
+            background: var(--lcars-gold);
+            border-radius: 0 0 0 var(--radius-lcars);
+        }
+
+        .footer-bar {
+            flex: 1;
+            background: var(--lcars-gold-dark);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 var(--space-4);
+        }
+
+        .footer-text {
+            font-family: 'Orbitron', monospace;
+            font-size: var(--text-xs);
+            font-weight: 500;
+            color: var(--text-on-color);
+            letter-spacing: 1px;
+        }
+
+        .footer-end {
+            width: 100px;
+            background: var(--lcars-blue);
+            border-radius: 0 0 var(--radius-lcars) 0;
+        }
+
+        /* ===========================================
+           CONTENT COMPONENTS
+           =========================================== */
+
+        /* Panels */
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        .panel-title {
+            font-family: 'Orbitron', monospace;
+            font-size: var(--text-lg);
+            font-weight: 600;
+            color: var(--lcars-gold);
+            padding-bottom: var(--space-2);
+            margin-bottom: var(--space-4);
+            border-bottom: 2px solid var(--lcars-gold-dark);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: var(--space-3);
+            margin-bottom: var(--space-4);
+        }
+
+        .stat-card {
+            background: var(--bg-elevated);
+            border-left: 4px solid var(--lcars-gold);
+            padding: var(--space-3);
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+        }
+
+        .stat-label {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: var(--space-1);
+        }
+
+        .stat-value {
+            font-family: 'Orbitron', monospace;
+            font-size: var(--text-xl);
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-value.blue { color: var(--lcars-blue-light); }
+        .stat-value.green { color: var(--accent-success); }
+        .stat-value.gold { color: var(--lcars-gold-light); }
+
+        /* Section Title */
+        .section-title {
+            font-family: 'Orbitron', monospace;
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            margin: var(--space-4) 0 var(--space-3) 0;
+            padding-bottom: var(--space-2);
+            border-bottom: 1px solid var(--bg-surface);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Buttons */
+        .btn {
+            font-family: 'Orbitron', monospace;
+            font-size: var(--text-sm);
+            font-weight: 600;
+            padding: var(--space-2) var(--space-4);
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: var(--lcars-gold);
+            color: var(--text-on-color);
+        }
+        .btn-primary:hover { background: var(--lcars-gold-light); }
+
+        .btn-success {
+            background: var(--accent-success);
+            color: var(--text-on-color);
+        }
+        .btn-success:hover { opacity: 0.9; }
+
+        .btn-danger {
+            background: var(--accent-danger);
+            color: var(--text-primary);
+        }
+        .btn-danger:hover { opacity: 0.9; }
+
+        .btn-secondary {
+            background: var(--lcars-blue);
+            color: var(--text-on-color);
+        }
+        .btn-secondary:hover { background: var(--lcars-blue-light); }
+
+        .btn-sm {
+            padding: var(--space-1) var(--space-3);
+            font-size: var(--text-xs);
+        }
+
+        /* Control Bar */
+        .control-bar {
+            display: flex;
+            gap: var(--space-3);
+            margin-bottom: var(--space-4);
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* Status Pill */
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-2);
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-elevated);
+            border: 1px solid var(--accent-success);
+            border-radius: var(--radius-pill);
+            margin-left: auto;
+        }
+
+        .status-pill .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-success);
+            animation: pulse 2s infinite;
+        }
+
+        .status-pill.offline {
+            border-color: var(--accent-danger);
+        }
+
+        .status-pill.offline .dot {
+            background: var(--accent-danger);
+        }
+
+        .status-pill-text {
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Info Box */
+        .info-box {
+            background: var(--bg-elevated);
+            border: 1px solid var(--bg-surface);
+            border-radius: var(--radius-md);
+            padding: var(--space-3);
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: var(--space-2) 0;
+            border-bottom: 1px solid var(--bg-surface);
+            flex-wrap: wrap;
+        }
+
+        .info-row:last-child { border-bottom: none; }
+
+        /* Recent block entry styling */
+        .recent-block-entry {
+            padding: 10px 0;
+            border-bottom: 1px solid var(--bg-surface);
+        }
+        .recent-block-entry:last-child { border-bottom: none; }
+
+        .info-label {
+            color: var(--text-muted);
+            font-size: var(--text-sm);
+        }
+
+        .info-value {
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: var(--text-sm);
+        }
+
+        /* Terminal */
+        .terminal {
+            background: var(--bg-void);
+            border: 1px solid var(--bg-surface);
+            border-radius: var(--radius-md);
+            padding: var(--space-3);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: var(--text-sm);
+            color: var(--accent-success);
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        .terminal-line {
+            margin: var(--space-1) 0;
+            line-height: 1.4;
+        }
+
+        .terminal-line.error { color: var(--accent-danger); }
+        .terminal-line.warning { color: var(--accent-warning); }
+        .terminal-line.info { color: var(--lcars-blue-light); }
+
+        /* Forms */
+        .form-group {
+            margin-bottom: var(--space-3);
+        }
+
+        .form-label {
+            display: block;
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            margin-bottom: var(--space-1);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: var(--space-2) var(--space-3);
+            background: var(--bg-elevated);
+            border: 2px solid var(--bg-surface);
+            border-radius: var(--radius-sm);
+            color: var(--text-primary);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: var(--text-base);
+            transition: border-color 0.15s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--lcars-gold);
+        }
+
+        /* File Drop */
+        .file-drop {
+            border: 2px dashed var(--bg-surface);
+            border-radius: var(--radius-md);
+            padding: var(--space-6);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .file-drop:hover, .file-drop.dragover {
+            border-color: var(--lcars-gold);
+            background: rgba(248, 161, 0, 0.05);
+        }
+
+        .file-drop-icon {
+            font-size: 48px;
+            margin-bottom: var(--space-3);
+        }
+
+        /* Grid Layout */
+        .grid-2 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-4);
+        }
+
+        /* User Menu & Avatar Styles */
+        .user-menu, .avatar-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--bg-elevated);
+            border: 1px solid var(--lcars-gold-dark);
+            border-radius: var(--radius-md);
+            min-width: 200px;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .user-menu {
+            left: 0;
+            right: auto;
+            margin-top: 8px;
+        }
+
+        .avatar-menu {
+            margin-top: 8px;
+        }
+
+        .menu-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            transition: background 0.15s ease;
+        }
+
+        .menu-item:hover {
+            background: var(--bg-surface);
+            color: var(--text-primary);
+        }
+
+        .menu-divider {
+            height: 1px;
+            background: var(--bg-surface);
+            margin: 4px 0;
+        }
+
+        .avatar-container {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .avatar-placeholder {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--bg-elevated);
+            border: 2px solid var(--lcars-gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-family: 'Orbitron', monospace;
+            transition: all 0.2s ease;
+        }
+
+        .avatar-placeholder:hover {
+            border-color: var(--lcars-gold-light);
+            transform: scale(1.05);
+        }
+
+        .avatar-placeholder img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        /* Human Intervention Required Badge */
+        .human-required {
+            background: var(--accent-danger);
+            color: white;
+            padding: 2px 8px;
+            border-radius: var(--radius-pill);
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .grid-2 { grid-template-columns: 1fr; }
+            .lcars-frame { grid-template-columns: 140px 1fr; }
+            .header-cap, .footer-cap { width: 140px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="lcars-frame">
+        <!-- Header -->
+        <div class="lcars-header">
+            <div class="header-cap">
+                <img src="logo.png" alt="Paraxiom">
+            </div>
+            <div class="header-bar">
+                <span class="header-title">Node Operator...</span>
+                <div class="header-menu" onclick="toggleUserMenu()" style="margin-left: 16px; cursor: pointer; padding: 4px 8px;">
+                </div>
+                <!-- User Menu Dropdown -->
+                <div id="userMenu" class="user-menu" style="display: none;">
+                    <div class="menu-item" onclick="showPanel('settings'); closeUserMenu();">Profile Settings</div>
+                    <div class="menu-item" onclick="toggleAgentMode()">
+                        <span>Agent Mode</span>
+                        <span id="agentModeStatus" style="margin-left: auto; font-size: 10px; color: var(--accent-danger);">OFF</span>
+                    </div>
+                    <div class="menu-item" onclick="showPanel('keys'); closeUserMenu();">Manage Keys</div>
+                    <div class="menu-divider"></div>
+                    <div class="menu-item" style="color: var(--accent-warning);" onclick="closeUserMenu();">Disconnect</div>
+                </div>
+            </div>
+            <div class="header-end" style="cursor: pointer; position: relative;" onclick="toggleAvatarMenu()">
+                <div class="avatar-container" id="avatarContainer">
+                    <div class="avatar-placeholder" id="avatarPlaceholder">
+                        <span style="font-size: 18px;">?</span>
+                    </div>
+                </div>
+                <!-- Avatar Menu -->
+                <div id="avatarMenu" class="avatar-menu" style="display: none;">
+                    <div style="padding: 12px; border-bottom: 1px solid var(--bg-surface);">
+                        <div style="font-weight: 600; color: var(--text-primary);" id="operatorName">Anonymous Operator</div>
+                        <div style="font-size: 10px; color: var(--text-muted);" id="operatorAddress">Not connected</div>
+                    </div>
+                    <div class="menu-item" onclick="uploadAvatar()">Upload Avatar</div>
+                    <div class="menu-item" onclick="showPanel('settings'); closeAvatarMenu();">Account Settings</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="lcars-sidebar">
+            <div class="sidebar-accent"></div>
+            <button class="nav-btn active" onclick="showPanel('status')">STATUS</button>
+            <button class="nav-btn" onclick="showPanel('governance')">GOVERN</button>
+            <button class="nav-btn" onclick="showPanel('rewards')">REWARDS</button>
+            <button class="nav-btn" onclick="showPanel('runtime')">RUNTIME</button>
+            <button class="nav-btn" onclick="showPanel('keys')">KEYS</button>
+            <button class="nav-btn" onclick="showPanel('quantum')">QUANTUM</button>
+            <button class="nav-btn" onclick="showPanel('network')">NETWORK</button>
+            <div class="nav-spacer"></div>
+            <button class="nav-btn" onclick="showPanel('settings')">SETTINGS</button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="lcars-main">
+            <div class="content-header">
+                <span class="content-label">SYSTEM INTERFACE v1.0</span>
+                <span class="content-label" id="timestamp">---</span>
+            </div>
+            <div class="content-area">
+
+                <!-- STATUS PANEL -->
+                <div id="panel-status" class="panel active">
+                    <h2 class="panel-title">Node Status</h2>
+
+                    <div class="control-bar">
+                        <button class="btn btn-success" onclick="startNode()" id="startBtn">START</button>
+                        <button class="btn btn-danger" onclick="stopNode()" id="stopBtn">STOP</button>
+                        <button class="btn btn-primary" onclick="restartNode()" id="restartBtn">RESTART</button>
+                        <div class="status-pill" id="nodeProcessStatus">
+                            <div class="dot"></div>
+                            <span class="status-pill-text" id="nodeProcessText">Unknown</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Block Height</div>
+                            <div class="stat-value" id="blockHeight">---</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Connected Peers</div>
+                            <div class="stat-value blue" id="peerCount">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Runtime</div>
+                            <div class="stat-value green" id="runtimeVersion">---</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Sync Status</div>
+                            <div class="stat-value gold" id="syncStatus">---</div>
+                        </div>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Node Information</span>
+                        <button class="btn btn-secondary btn-sm" onclick="debugRPC()">DEBUG</button>
+                        <button class="btn btn-secondary btn-sm" onclick="fetchNodeInfo()">REFRESH</button>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-row">
+                            <span class="info-label">Chain</span>
+                            <span class="info-value" id="chainName">---</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Node Name</span>
+                            <span class="info-value" id="nodeName">---</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Version</span>
+                            <span class="info-value" id="nodeVersion">---</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">RPC Endpoint</span>
+                            <span class="info-value" id="rpcEndpoint">---</span>
+                        </div>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Recent Blocks</span>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshRecentBlocks()">REFRESH</button>
+                    </div>
+                    <div class="info-box" id="recentBlocksContainer" style="max-height: 200px; overflow-y: auto;">
+                        <div class="recent-block" id="noBlocksMsg">
+                            <span class="info-label">Loading recent blocks...</span>
+                        </div>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Console Output</span>
+                        <button class="btn btn-secondary btn-sm" onclick="clearTerminal()">CLEAR</button>
+                    </div>
+                    <div class="terminal" id="terminal">
+                        <div class="terminal-line info">System initialized</div>
+                    </div>
+                </div>
+
+                <!-- GOVERNANCE PANEL -->
+                <div id="panel-governance" class="panel">
+                    <h2 class="panel-title">
+                        Validator Governance
+                        <span class="human-required" style="margin-left: 12px;">HUMAN REQUIRED</span>
+                    </h2>
+
+                    <!-- Human Intervention Notice -->
+                    <div style="background: linear-gradient(135deg, rgba(239,83,80,0.1), rgba(248,161,0,0.1)); border: 1px solid var(--accent-warning); border-radius: var(--radius-md); padding: 16px; margin-bottom: 24px;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <span style="font-size: 24px;">&#9888;</span>
+                            <span style="font-family: 'Orbitron', monospace; font-size: 14px; color: var(--accent-warning);">ESSENTIAL HUMAN INTERVENTION</span>
+                        </div>
+                        <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                            Governance decisions cannot be automated. All proposals and votes require your direct action.
+                            Agent Mode will <strong style="color: var(--text-primary);">never</strong> vote on your behalf - this protects network integrity and your validator stake.
+                        </p>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Active Proposals</div>
+                            <div class="stat-value gold" id="activeProposals">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Proposals</div>
+                            <div class="stat-value" id="totalProposals">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Voting Period</div>
+                            <div class="stat-value blue" id="votingPeriod">10 blocks</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Min Votes Required</div>
+                            <div class="stat-value green" id="minVotes">1</div>
+                        </div>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Propose New Validator</span>
+                    </div>
+                    <div class="info-box" style="margin-bottom: 24px;">
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label class="form-label">Validator Account (Public Key)</label>
+                            <input type="text" class="form-input" id="proposeValidatorAccount" placeholder="0x...">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label class="form-label">Sign As</label>
+                            <select class="form-input" id="proposeSigner">
+                                <option value="alice">Alice (Dev)</option>
+                                <option value="bob">Bob (Dev)</option>
+                                <option value="charlie">Charlie (Dev)</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-success" onclick="proposeValidator()">SUBMIT PROPOSAL</button>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Active Proposals</span>
+                        <button class="btn btn-secondary btn-sm" onclick="refreshProposals()">REFRESH</button>
+                    </div>
+                    <div id="proposalsList" class="info-box">
+                        <div class="info-row" id="noProposalsMsg">
+                            <span class="info-label">No active proposals. Click REFRESH to check.</span>
+                        </div>
+                    </div>
+
+                    <div class="section-title" style="margin-top: 24px;">
+                        <span>Console Output</span>
+                        <button class="btn btn-secondary btn-sm" onclick="clearGovConsole()">CLEAR</button>
+                    </div>
+                    <div class="terminal" id="govTerminal" style="max-height: 180px;">
+                        <div class="terminal-line info">Governance console ready</div>
+                    </div>
+                </div>
+
+                <!-- REWARDS PANEL -->
+                <div id="panel-rewards" class="panel">
+                    <h2 class="panel-title">Validator Rewards</h2>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Pending Rewards</div>
+                            <div class="stat-value gold" id="pendingRewards">0 QHM</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Staked</div>
+                            <div class="stat-value blue" id="totalStaked">0 QHM</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Certification</div>
+                            <div class="stat-value" id="certLevel">Uncertified</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Reward Multiplier</div>
+                            <div class="stat-value green" id="rewardMultiplier">70%</div>
+                        </div>
+                    </div>
+
+                    <div class="section-title">Certification Levels</div>
+                    <div class="grid-2" style="margin-bottom: 24px;">
+                        <div class="info-box">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--text-muted);"></div>
+                                <span style="color: var(--text-primary); font-weight: 600;">Uncertified</span>
+                                <span style="color: var(--accent-warning); margin-left: auto;">70% Rewards</span>
+                            </div>
+                            <p style="font-size: 12px; color: var(--text-muted);">Default level for new validators. Limited reward multiplier until verification.</p>
+                        </div>
+                        <div class="info-box">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--lcars-blue);"></div>
+                                <span style="color: var(--text-primary); font-weight: 600;">KYC Verified</span>
+                                <span style="color: var(--accent-success); margin-left: auto;">100% Rewards</span>
+                            </div>
+                            <p style="font-size: 12px; color: var(--text-muted);">Identity verified through KYC process. Full reward eligibility.</p>
+                        </div>
+                        <div class="info-box">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--lcars-gold);"></div>
+                                <span style="color: var(--text-primary); font-weight: 600;">Agent Certified</span>
+                                <span style="color: var(--lcars-gold-light); margin-left: auto;">120% Rewards</span>
+                            </div>
+                            <p style="font-size: 12px; color: var(--text-muted);">Premium tier with bonus rewards. Requires additional certification.</p>
+                        </div>
+                        <div class="info-box">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                <div style="width: 12px; height: 12px; border-radius: 50%; background: var(--accent-danger);"></div>
+                                <span style="color: var(--text-primary); font-weight: 600;">Cooldown Period</span>
+                                <span style="color: var(--accent-danger); margin-left: auto;">100 blocks</span>
+                            </div>
+                            <p style="font-size: 12px; color: var(--text-muted);">Unstaking requires a cooldown period before funds are released.</p>
+                        </div>
+                    </div>
+
+                    <div class="section-title">Staking Actions</div>
+                    <div class="info-box" style="margin-bottom: 24px;">
+                        <div class="grid-2" style="gap: 16px;">
+                            <div>
+                                <div class="form-group">
+                                    <label class="form-label">Stake Amount (QHM)</label>
+                                    <input type="number" class="form-input" id="stakeAmount" placeholder="1000">
+                                </div>
+                                <button class="btn btn-success" onclick="stakeTokens()">STAKE</button>
+                            </div>
+                            <div>
+                                <div class="form-group">
+                                    <label class="form-label">Unstake Amount (QHM)</label>
+                                    <input type="number" class="form-input" id="unstakeAmount" placeholder="1000">
+                                </div>
+                                <button class="btn btn-danger" onclick="requestUnstake()">REQUEST UNSTAKE</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-title">Reward Actions</div>
+                    <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+                        <button class="btn btn-primary" onclick="claimRewards()">CLAIM REWARDS</button>
+                        <button class="btn btn-secondary" onclick="submitUptimeProof()">SUBMIT UPTIME PROOF</button>
+                        <button class="btn btn-secondary" onclick="refreshRewards()">REFRESH</button>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Unstake Queue</span>
+                    </div>
+                    <div class="info-box" id="unstakeQueue">
+                        <div class="info-row">
+                            <span class="info-label">No pending unstake requests</span>
+                        </div>
+                    </div>
+
+                    <div class="section-title" style="margin-top: 24px;">
+                        <span>Console Output</span>
+                        <button class="btn btn-secondary btn-sm" onclick="clearRewardsConsole()">CLEAR</button>
+                    </div>
+                    <div class="terminal" id="rewardsTerminal" style="max-height: 180px;">
+                        <div class="terminal-line info">Rewards console ready</div>
+                    </div>
+                </div>
+
+                <!-- RUNTIME PANEL -->
+                <div id="panel-runtime" class="panel">
+                    <h2 class="panel-title">Runtime Upgrade</h2>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Spec Version</div>
+                            <div class="stat-value green" id="specVersion">---</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Impl Version</div>
+                            <div class="stat-value" id="implVersion">---</div>
+                        </div>
+                    </div>
+
+                    <div class="section-title">Upload Runtime WASM</div>
+                    <div class="file-drop" id="wasmDropZone" onclick="document.getElementById('wasmFile').click()">
+                        <div class="file-drop-icon">📦</div>
+                        <div style="font-size: 16px; margin-bottom: 8px;">Drop WASM file here</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">or click to browse</div>
+                        <input type="file" id="wasmFile" accept=".wasm" style="display: none;" onchange="handleWasmSelect(this)">
+                    </div>
+
+                    <div class="info-box" id="wasmInfo" style="display: none; margin-top: 16px;">
+                        <div class="info-row">
+                            <span class="info-label">File</span>
+                            <span class="info-value" id="wasmFileName">---</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Size</span>
+                            <span class="info-value" id="wasmFileSize">---</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">SHA256</span>
+                            <span class="info-value" id="wasmHash" style="font-size: 10px;">---</span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 24px; display: flex; gap: 12px;">
+                        <button class="btn btn-success" onclick="submitRuntimeUpgrade()" id="upgradeBtn" disabled>SUBMIT UPGRADE</button>
+                        <button class="btn btn-secondary" onclick="clearWasm()">CLEAR</button>
+                    </div>
+                </div>
+
+                <!-- KEYS PANEL -->
+                <div id="panel-keys" class="panel">
+                    <h2 class="panel-title">Key Management</h2>
+
+                    <div class="section-title">Key Storage Location</div>
+                    <div class="info-box">
+                        <div class="info-row">
+                            <span class="info-label">Keystore Path</span>
+                            <span class="info-value" id="keystorePath" style="font-size: 11px;">~/Library/Application Support/quantumharmony/operator-keystore/</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Algorithm</span>
+                            <span class="info-value">SPHINCS+-256s (Post-Quantum)</span>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 12px; margin: 24px 0; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="checkKeystore()">CHECK KEYSTORE</button>
+                        <button class="btn btn-success" onclick="generateKey()">GENERATE NEW KEY</button>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Validator Keys</span>
+                        <span id="keysCount" style="color: var(--lcars-gold);">0 keys</span>
+                    </div>
+                    <div class="info-box" id="keysListBox">
+                        <div class="info-row" id="noKeysMsg">
+                            <span class="info-label">No keys found. Click CHECK KEYSTORE or GENERATE NEW KEY.</span>
+                        </div>
+                    </div>
+
+                    <div class="section-title">Key Injection (Advanced)</div>
+                    <div style="background: var(--bg-surface); padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 12px; color: var(--text-muted);">
+                        <strong style="color: var(--accent-warning);">Note:</strong> Dev seeds (Alice, Bob) generate random test keys.
+                        For production, use GENERATE NEW KEY and register the public key with the network.
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dev Seed (testing only)</label>
+                        <input type="text" class="form-input" id="sudoSeed" placeholder="Alice, Bob, Charlie...">
+                    </div>
+                    <button class="btn btn-secondary" onclick="injectKey()">INJECT DEV KEY</button>
+
+                    <div class="section-title" style="margin-top: 32px;">
+                        <span>Console Output</span>
+                        <button class="btn btn-secondary btn-sm" onclick="clearKeysConsole()">CLEAR</button>
+                    </div>
+                    <div class="terminal" id="keysTerminal" style="max-height: 180px;">
+                        <div class="terminal-line info">Keys console ready</div>
+                    </div>
+                </div>
+
+                <!-- QUANTUM PANEL -->
+                <div id="panel-quantum" class="panel">
+                    <h2 class="panel-title">Quantum Services</h2>
+
+                    <div class="section-title">Entropy Source</div>
+                    <div class="form-group">
+                        <select class="form-input" id="entropySource" onchange="onEntropySourceChange()">
+                            <option value="hub">Entropy Hub (Aggregator)</option>
+                            <option value="crypto4a">Crypto4A QRNG</option>
+                            <option value="qkd">QKD Device</option>
+                        </select>
+                    </div>
+
+                    <div class="grid-2">
+                        <div>
+                            <div class="section-title">QKD Client</div>
+                            <div class="status-pill" id="qkdStatus" style="margin-bottom: 16px;">
+                                <div class="dot"></div>
+                                <span class="status-pill-text" id="qkdStatusText">Checking...</span>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-row">
+                                    <span class="info-label">Device</span>
+                                    <span class="info-value" id="qkdDevice">---</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Keys Available</span>
+                                    <span class="info-value" id="qkdKeys">---</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="section-title">Entropy Hub</div>
+                            <div class="status-pill" id="hubStatus" style="margin-bottom: 16px;">
+                                <div class="dot"></div>
+                                <span class="status-pill-text" id="hubStatusText">Checking...</span>
+                            </div>
+                            <div class="info-box">
+                                <div class="info-row">
+                                    <span class="info-label">Active Sources</span>
+                                    <span class="info-value" id="hubSources">---</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Pool Size</span>
+                                    <span class="info-value" id="hubPool">---</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section-title">Crypto4A HSM (QRNG/RNG Entropy)</div>
+                    <div class="info-box" id="crypto4aRngBox">
+                        <div class="info-row">
+                            <span class="info-label">Description</span>
+                            <span class="info-value" style="font-size: 11px; color: var(--text-muted);">Hardware entropy source (does not store keys)</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Endpoint</span>
+                            <input type="text" class="form-input" id="crypto4aEndpoint" value="http://localhost:8106/v1/random" style="margin-top: 8px;">
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Status</span>
+                            <span class="info-value" id="crypto4aStatus">Not Tested</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Last Entropy</span>
+                            <span class="info-value" id="crypto4aEntropy" style="font-size: 10px;">---</span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 16px; display: flex; gap: 12px;">
+                        <button class="btn btn-primary" onclick="testCrypto4aRng()">TEST RNG</button>
+                        <button class="btn btn-secondary" onclick="fetchCrypto4aEntropy(32)">FETCH 32 BYTES</button>
+                    </div>
+                </div>
+
+                <!-- NETWORK PANEL -->
+                <div id="panel-network" class="panel">
+                    <h2 class="panel-title">Network</h2>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Peers</div>
+                            <div class="stat-value blue" id="networkPeers">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Best Block</div>
+                            <div class="stat-value" id="networkBest">---</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Finalized</div>
+                            <div class="stat-value green" id="networkFinalized">---</div>
+                        </div>
+                    </div>
+
+                    <div class="section-title">Known Validators</div>
+                    <div class="info-box" id="validatorsList">
+                        <div class="info-row">
+                            <span class="info-label">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SETTINGS PANEL -->
+                <div id="panel-settings" class="panel">
+                    <h2 class="panel-title">Settings</h2>
+
+                    <div class="form-group">
+                        <label class="form-label">RPC Endpoint</label>
+                        <input type="text" class="form-input" id="settingsRpc" value="http://localhost:9944">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">QKD Endpoint</label>
+                        <input type="text" class="form-input" id="settingsQkd" value="http://localhost:8181">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Entropy Hub</label>
+                        <input type="text" class="form-input" id="settingsHub" value="http://localhost:8180">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Controller</label>
+                        <input type="text" class="form-input" id="settingsController" value="http://localhost:9955">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Console Log Level</label>
+                        <select class="form-input" id="settingsLogLevel" onchange="setLogLevel(parseInt(this.value))">
+                            <option value="0">Errors Only</option>
+                            <option value="1" selected>Info (default)</option>
+                            <option value="2">Verbose (all RPC)</option>
+                        </select>
+                    </div>
+
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn btn-primary" onclick="saveSettings()">SAVE</button>
+                        <button class="btn btn-secondary" onclick="loadSettings()">RESET</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="lcars-footer">
+            <div class="footer-cap"></div>
+            <div class="footer-bar">
+                <span class="footer-text">SPHINCS+-256s POST-QUANTUM</span>
+                <span class="footer-text" id="footerStatus">Disconnected</span>
+            </div>
+            <div class="footer-end"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration - auto-detect RPC endpoint based on page location
+        // Force clear bad cache if ?reset in URL
+        if (window.location.search.includes('reset')) {
+            localStorage.clear();
+            window.location.href = window.location.pathname;
+        }
+
+        // Always use localhost:9944 for local development
+        const RPC_URL = 'http://localhost:9944';
+
+        let config = {
+            rpc: RPC_URL,
+            qkd: 'http://localhost:8181',
+            hub: 'http://localhost:8180',
+            controller: window.location.origin
+        };
+
+        let connected = false;
+        let selectedWasm = null;
+        let sudoAccount = null;
+        let agentModeEnabled = localStorage.getItem('agentMode') === 'true';
+
+        // ===========================================
+        // USER MENU & AVATAR FUNCTIONS
+        // ===========================================
+
+        function toggleUserMenu() {
+            const menu = document.getElementById('userMenu');
+            const avatarMenu = document.getElementById('avatarMenu');
+            avatarMenu.style.display = 'none';
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+            event.stopPropagation();
+        }
+
+        function closeUserMenu() {
+            document.getElementById('userMenu').style.display = 'none';
+        }
+
+        function toggleAvatarMenu() {
+            const menu = document.getElementById('avatarMenu');
+            const userMenu = document.getElementById('userMenu');
+            userMenu.style.display = 'none';
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+            event.stopPropagation();
+        }
+
+        function closeAvatarMenu() {
+            document.getElementById('avatarMenu').style.display = 'none';
+        }
+
+        // Close menus when clicking outside
+        document.addEventListener('click', () => {
+            closeUserMenu();
+            closeAvatarMenu();
+        });
+
+        function uploadAvatar() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const placeholder = document.getElementById('avatarPlaceholder');
+                        placeholder.innerHTML = `<img src="${ev.target.result}" alt="Avatar">`;
+                        localStorage.setItem('avatar', ev.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+            input.click();
+            closeAvatarMenu();
+        }
+
+        // Load saved avatar on init
+        function loadAvatar() {
+            const saved = localStorage.getItem('avatar');
+            if (saved) {
+                document.getElementById('avatarPlaceholder').innerHTML = `<img src="${saved}" alt="Avatar">`;
+            }
+        }
+
+        // ===========================================
+        // AGENT MODE FUNCTIONS
+        // ===========================================
+
+        function toggleAgentMode() {
+            agentModeEnabled = !agentModeEnabled;
+            localStorage.setItem('agentMode', agentModeEnabled);
+            updateAgentModeUI();
+            closeUserMenu();
+
+            if (agentModeEnabled) {
+                log('AGENT MODE ENABLED - Auto-stake active, governance requires manual intervention', 'warning');
+            } else {
+                log('Agent Mode disabled - Full manual control', 'info');
+            }
+        }
+
+        function updateAgentModeUI() {
+            // Agent Mode is stealth - only show status in private menu
+            // No public banner to prevent strategy revelation
+            const statusEl = document.getElementById('agentModeStatus');
+
+            if (agentModeEnabled) {
+                statusEl.textContent = 'ON';
+                statusEl.style.color = 'var(--accent-success)';
+            } else {
+                statusEl.textContent = 'OFF';
+                statusEl.style.color = 'var(--accent-danger)';
+            }
+        }
+
+        // Auto-stake check (runs when agent mode is enabled)
+        async function checkAutoStake() {
+            if (!agentModeEnabled) return;
+
+            // In agent mode, automatically compound rewards
+            // Note: This does NOT vote - governance always requires human
+            rewardsLog('Agent Mode: Checking for auto-stake opportunities...', 'info');
+            // Would call the staking RPC here
+        }
+
+        // Log level: 0=errors only, 1=info, 2=verbose (shows all RPC)
+        let logLevel = parseInt(localStorage.getItem('logLevel') || '1');
+
+        function setLogLevel(level) {
+            logLevel = level;
+            localStorage.setItem('logLevel', level);
+            log(`Log level set to ${['errors', 'info', 'verbose'][level]}`, 'info');
+        }
+
+        // RPC endpoint - same pattern as working wallet
+        const RPC = 'http://127.0.0.1:9944';
+
+        async function rpc(method, params = []) {
+            try {
+                const res = await fetch(RPC, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+                });
+                const data = await res.json();
+                if (data.error) {
+                    console.error('RPC error:', data.error);
+                    return null;
+                }
+                return data.result;
+            } catch (e) {
+                console.error('RPC fetch error:', method, e);
+                return null;
+            }
+        }
+
+        // Controller Helper
+        async function controllerRequest(endpoint, method = 'GET', body = null) {
+            try {
+                const options = { method, headers: { 'Content-Type': 'application/json' } };
+                if (method === 'POST') options.body = body ? JSON.stringify(body) : '{}';
+                const res = await fetch(config.controller + endpoint, options);
+                return await res.json();
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Node Control
+        async function startNode() {
+            log('Starting node...', 'warning');
+            document.getElementById('startBtn').disabled = true;
+            const result = await controllerRequest('/node/start', 'POST');
+            document.getElementById('startBtn').disabled = false;
+            if (result?.success) {
+                log(`Node started (PID: ${result.pid})`, 'info');
+            } else {
+                log(result?.message || 'Failed to start', 'error');
+            }
+            updateNodeProcessStatus();
+        }
+
+        async function stopNode() {
+            log('Stopping node...', 'warning');
+            const result = await controllerRequest('/node/stop', 'POST');
+            log(result?.success ? 'Node stopped' : (result?.message || 'Failed'), result?.success ? 'info' : 'error');
+            updateNodeProcessStatus();
+        }
+
+        async function restartNode() {
+            log('Restarting node...', 'warning');
+            const result = await controllerRequest('/node/restart', 'POST');
+            if (result?.success) log(`Node restarted (PID: ${result.pid})`, 'info');
+            else log(result?.message || 'Failed', 'error');
+            updateNodeProcessStatus();
+        }
+
+        async function updateNodeProcessStatus() {
+            // Try direct RPC first (preferred - works without controller)
+            console.log('[updateNodeProcessStatus] Checking...');
+            const health = await rpc('system_health');
+            console.log('[updateNodeProcessStatus] Health result:', health);
+            const pill = document.getElementById('nodeProcessStatus');
+            const text = document.getElementById('nodeProcessText');
+
+            if (health) {
+                console.log('[updateNodeProcessStatus] Node is healthy, will call fetchNodeInfo');
+                log(`Node healthy: ${health.peers} peers`, 'info');
+                pill.classList.remove('offline');
+                text.textContent = 'Running';
+
+                // Get block height
+                const header = await rpc('chain_getHeader');
+                if (header?.number) {
+                    const blockNum = parseInt(header.number, 16);
+                    document.getElementById('blockHeight').textContent = blockNum.toLocaleString();
+                    document.getElementById('networkBest').textContent = blockNum.toLocaleString();
+                }
+
+                // Set peers from health
+                document.getElementById('peerCount').textContent = health.peers;
+                document.getElementById('networkPeers').textContent = health.peers;
+
+                // Set sync status
+                document.getElementById('syncStatus').textContent = health.isSyncing ? 'Syncing' : 'Synced';
+
+                // Update connected status
+                connected = true;
+                document.getElementById('statusDot').classList.add('connected');
+                document.getElementById('footerStatus').textContent = 'Connected';
+
+                // Fetch additional node info via RPC
+                await fetchNodeInfo();
+            } else {
+                pill.classList.add('offline');
+                text.textContent = 'Offline';
+                connected = false;
+                document.getElementById('statusDot').classList.remove('connected');
+                document.getElementById('footerStatus').textContent = 'Disconnected';
+            }
+        }
+
+        // Small delay helper
+        const delay = ms => new Promise(r => setTimeout(r, ms));
+
+        // Debug function to test RPC directly
+        async function debugRPC() {
+            const url = config.rpc;
+            log(`DEBUG: Testing RPC at ${url}`, 'warning');
+
+            const results = [];
+
+            try {
+                // Test 1: system_chain
+                log('DEBUG: Testing system_chain...', 'info');
+                const res1 = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'system_chain', params: [] })
+                });
+                const data1 = await res1.json();
+                results.push(`system_chain: ${data1.result || data1.error?.message || 'failed'}`);
+                log(`DEBUG: system_chain = ${data1.result || 'ERROR'}`, data1.result ? 'info' : 'error');
+
+                if (data1.result) {
+                    document.getElementById('chainName').textContent = data1.result;
+                }
+            } catch (e) {
+                results.push(`system_chain: FETCH ERROR - ${e.message}`);
+                log(`DEBUG: system_chain FETCH ERROR: ${e.message}`, 'error');
+            }
+
+            await delay(100);
+
+            try {
+                // Test 2: system_name
+                log('DEBUG: Testing system_name...', 'info');
+                const res2 = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'system_name', params: [] })
+                });
+                const data2 = await res2.json();
+                results.push(`system_name: ${data2.result || data2.error?.message || 'failed'}`);
+                log(`DEBUG: system_name = ${data2.result || 'ERROR'}`, data2.result ? 'info' : 'error');
+
+                if (data2.result) {
+                    document.getElementById('nodeName').textContent = data2.result;
+                }
+            } catch (e) {
+                results.push(`system_name: FETCH ERROR - ${e.message}`);
+                log(`DEBUG: system_name FETCH ERROR: ${e.message}`, 'error');
+            }
+
+            await delay(100);
+
+            try {
+                // Test 3: system_version
+                log('DEBUG: Testing system_version...', 'info');
+                const res3 = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'system_version', params: [] })
+                });
+                const data3 = await res3.json();
+                results.push(`system_version: ${data3.result || data3.error?.message || 'failed'}`);
+                log(`DEBUG: system_version = ${data3.result || 'ERROR'}`, data3.result ? 'info' : 'error');
+
+                if (data3.result) {
+                    document.getElementById('nodeVersion').textContent = data3.result;
+                }
+            } catch (e) {
+                results.push(`system_version: FETCH ERROR - ${e.message}`);
+                log(`DEBUG: system_version FETCH ERROR: ${e.message}`, 'error');
+            }
+
+            document.getElementById('rpcEndpoint').textContent = url;
+
+            log('DEBUG: Complete. Check Console Output above.', 'warning');
+            alert('DEBUG Results:\\n\\n' + results.join('\\n') + '\\n\\nRPC URL: ' + url);
+        }
+
+        // Fetch node info (chain, name, version, runtime) via RPC
+        async function fetchNodeInfo() {
+            console.log('[fetchNodeInfo] Starting...');
+            log(`Fetching node info...`, 'info');
+            try {
+                // Fetch sequentially with small delays to avoid overwhelming RPC
+                const chain = await rpc('system_chain');
+                await delay(100);
+
+                const name = await rpc('system_name');
+                await delay(100);
+
+                const version = await rpc('system_version');
+                await delay(100);
+
+                const runtime = await rpc('state_getRuntimeVersion');
+
+                console.log('[fetchNodeInfo] Results:', { chain, name, version, runtime });
+
+                if (chain) {
+                    document.getElementById('chainName').textContent = chain;
+                    log(`Chain: ${chain}`, 'info');
+                } else {
+                    log('Chain: failed to fetch', 'error');
+                }
+                if (name) document.getElementById('nodeName').textContent = name;
+                if (version) document.getElementById('nodeVersion').textContent = version;
+                if (runtime && runtime.specName) {
+                    document.getElementById('runtimeVersion').textContent = `v${runtime.specVersion}`;
+                    log(`Runtime: v${runtime.specVersion}`, 'info');
+                }
+                document.getElementById('rpcEndpoint').textContent = config.rpc;
+
+                // Refresh recent blocks after a short delay
+                await delay(200);
+                await refreshRecentBlocks();
+            } catch (e) {
+                log(`fetchNodeInfo error: ${e.message}`, 'error');
+                console.error('[fetchNodeInfo] error:', e);
+            }
+        }
+
+        // Terminal
+        function log(message, type = 'info') {
+            const terminal = document.getElementById('terminal');
+            const line = document.createElement('div');
+            line.className = `terminal-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+            while (terminal.children.length > 100) terminal.removeChild(terminal.firstChild);
+        }
+
+        function clearTerminal() {
+            document.getElementById('terminal').innerHTML = '<div class="terminal-line info">Console cleared</div>';
+        }
+
+        // Navigation
+        function showPanel(name) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('panel-' + name).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Status Updates
+        async function updateStatus() {
+            try {
+                const health = await rpc('system_health');
+                const header = await rpc('chain_getHeader');
+                const chain = await rpc('system_chain');
+                const name = await rpc('system_name');
+                const version = await rpc('system_version');
+                const runtime = await rpc('state_getRuntimeVersion');
+
+                if (health) {
+                    connected = true;
+                    document.getElementById('statusDot').classList.add('connected');
+                    document.getElementById('footerStatus').textContent = 'Connected';
+                    document.getElementById('peerCount').textContent = health.peers || 0;
+                    document.getElementById('networkPeers').textContent = health.peers || 0;
+                    document.getElementById('syncStatus').textContent = health.isSyncing ? 'Syncing' : 'Synced';
+                } else {
+                    connected = false;
+                    document.getElementById('statusDot').classList.remove('connected');
+                    document.getElementById('footerStatus').textContent = 'Disconnected';
+                }
+
+                if (header) {
+                    const blockNum = parseInt(header.number, 16);
+                    document.getElementById('blockHeight').textContent = blockNum.toLocaleString();
+                    document.getElementById('networkBest').textContent = blockNum.toLocaleString();
+                }
+
+                // Node Information
+                if (chain) document.getElementById('chainName').textContent = chain;
+                if (name) document.getElementById('nodeName').textContent = name;
+                if (version) document.getElementById('nodeVersion').textContent = version;
+
+                // Runtime version - show spec version number
+                if (runtime && runtime.specName) {
+                    document.getElementById('runtimeVersion').textContent = `v${runtime.specVersion}`;
+                    const specEl = document.getElementById('specVersion');
+                    const implEl = document.getElementById('implVersion');
+                    if (specEl) specEl.textContent = runtime.specVersion;
+                    if (implEl) implEl.textContent = runtime.implVersion;
+                }
+
+                document.getElementById('rpcEndpoint').textContent = config.rpc;
+                document.getElementById('timestamp').textContent = new Date().toLocaleString();
+
+                // Fetch recent blocks on status update
+                await refreshRecentBlocks();
+            } catch (e) {
+                console.error('Status update error:', e);
+            }
+        }
+
+        // Recent Blocks with Extrinsics
+        let recentBlocks = [];
+
+        async function refreshRecentBlocks() {
+            console.log('[refreshRecentBlocks] Starting...');
+            const container = document.getElementById('recentBlocksContainer');
+            if (!container) {
+                console.error('[refreshRecentBlocks] Container not found!');
+                return;
+            }
+
+            try {
+                const header = await rpc('chain_getHeader');
+                console.log('[refreshRecentBlocks] Header:', header);
+                if (!header) {
+                    container.innerHTML = '<div class="info-row"><span class="info-label">Waiting for node connection...</span></div>';
+                    return;
+                }
+
+                const currentBlock = parseInt(header.number, 16);
+                const blocksToFetch = 5;
+
+                let html = '';
+                for (let i = 0; i < blocksToFetch; i++) {
+                    const blockNum = currentBlock - i;
+                    if (blockNum < 0) break;
+
+                    const blockHash = await rpc('chain_getBlockHash', [blockNum]);
+                    if (blockHash) {
+                        const block = await rpc('chain_getBlock', [blockHash]);
+                        if (block && block.block) {
+                            const extrinsicsCount = block.block.extrinsics ? block.block.extrinsics.length : 0;
+
+                            html += `
+                                <div class="info-row" style="padding: 8px 0; border-bottom: 1px solid var(--bg-surface);">
+                                    <div style="display: flex; justify-content: space-between; width: 100%;">
+                                        <span style="color: var(--lcars-gold); font-family: 'Orbitron', monospace; font-size: 13px;">
+                                            #${blockNum.toLocaleString()}
+                                        </span>
+                                        <span style="color: var(--accent-success); font-size: 12px;">
+                                            ${extrinsicsCount} extrinsic${extrinsicsCount !== 1 ? 's' : ''}
+                                        </span>
+                                    </div>
+                                    <div style="width: 100%; margin-top: 4px;">
+                                        <span style="color: var(--text-muted); font-size: 10px; font-family: 'JetBrains Mono', monospace;">
+                                            ${blockHash.substring(0, 18)}...${blockHash.substring(blockHash.length - 8)}
+                                        </span>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+                }
+
+                container.innerHTML = html || '<div class="info-row"><span class="info-label">No blocks found</span></div>';
+            } catch (e) {
+                console.error('Recent blocks error:', e);
+                container.innerHTML = '<div class="info-row"><span class="info-label">Error loading blocks</span></div>';
+            }
+        }
+
+        // WASM
+        function handleWasmSelect(input) {
+            const file = input.files[0];
+            if (!file) return;
+            selectedWasm = file;
+            document.getElementById('wasmInfo').style.display = 'block';
+            document.getElementById('wasmFileName').textContent = file.name;
+            document.getElementById('wasmFileSize').textContent = (file.size / 1024).toFixed(2) + ' KB';
+            document.getElementById('upgradeBtn').disabled = false;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const hash = await crypto.subtle.digest('SHA-256', e.target.result);
+                const hex = Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+                document.getElementById('wasmHash').textContent = '0x' + hex.substring(0, 32) + '...';
+            };
+            reader.readAsArrayBuffer(file);
+            log(`WASM selected: ${file.name}`, 'info');
+        }
+
+        function clearWasm() {
+            selectedWasm = null;
+            document.getElementById('wasmFile').value = '';
+            document.getElementById('wasmInfo').style.display = 'none';
+            document.getElementById('upgradeBtn').disabled = true;
+        }
+
+        // Drag and drop
+        const dropZone = document.getElementById('wasmDropZone');
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file?.name.endsWith('.wasm')) {
+                document.getElementById('wasmFile').files = e.dataTransfer.files;
+                handleWasmSelect(document.getElementById('wasmFile'));
+            }
+        });
+
+        async function submitRuntimeUpgrade() {
+            if (!selectedWasm || !sudoAccount) {
+                log('Missing WASM or sudo account', 'error');
+                return;
+            }
+            log('Runtime upgrade requires polkadot-js integration', 'warning');
+        }
+
+        // Keystore source toggle
+        function onKeystoreSourceChange() {
+            const source = document.getElementById('keystoreSource').value;
+            document.getElementById('keystorePathBox').style.display = source === 'local' ? 'block' : 'none';
+            document.getElementById('hsmBox').style.display = source === 'hsm' ? 'block' : 'none';
+            log(`Key storage: ${source === 'hsm' ? 'Hardware Security Module' : 'Local Keystore'}`, 'info');
+        }
+
+        // Entropy source toggle
+        function onEntropySourceChange() {
+            const source = document.getElementById('entropySource').value;
+            log(`Entropy source: ${source}`, 'info');
+        }
+
+        // Crypto4A QRNG functions
+        async function testCrypto4aRng() {
+            const endpoint = document.getElementById('crypto4aEndpoint').value;
+            log(`Testing Crypto4A QRNG at ${endpoint}...`, 'info');
+
+            try {
+                const res = await fetch(`${endpoint}?size=8`);
+                if (res.ok) {
+                    const data = await res.arrayBuffer();
+                    const hex = Array.from(new Uint8Array(data)).map(b => b.toString(16).padStart(2, '0')).join('');
+                    document.getElementById('crypto4aStatus').textContent = 'Online';
+                    document.getElementById('crypto4aStatus').style.color = 'var(--accent-success)';
+                    document.getElementById('crypto4aEntropy').textContent = '0x' + hex;
+                    log(`Crypto4A QRNG online - received: 0x${hex}`, 'info');
+                } else {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+            } catch (e) {
+                document.getElementById('crypto4aStatus').textContent = 'Offline';
+                document.getElementById('crypto4aStatus').style.color = 'var(--accent-danger)';
+                log(`Crypto4A QRNG error: ${e.message}`, 'error');
+            }
+        }
+
+        async function fetchCrypto4aEntropy(bytes) {
+            const endpoint = document.getElementById('crypto4aEndpoint').value;
+            log(`Fetching ${bytes} bytes from Crypto4A QRNG...`, 'info');
+
+            try {
+                const res = await fetch(`${endpoint}?size=${bytes}`);
+                if (res.ok) {
+                    const data = await res.arrayBuffer();
+                    const hex = Array.from(new Uint8Array(data)).map(b => b.toString(16).padStart(2, '0')).join('');
+                    document.getElementById('crypto4aEntropy').textContent = '0x' + hex.substring(0, 48) + (hex.length > 48 ? '...' : '');
+                    log(`Received ${bytes} bytes: 0x${hex.substring(0, 32)}...`, 'info');
+                } else {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+            } catch (e) {
+                log(`Failed to fetch entropy: ${e.message}`, 'error');
+            }
+        }
+
+        // Keys console helper
+        function keysLog(message, type = 'info') {
+            const terminal = document.getElementById('keysTerminal');
+            const line = document.createElement('div');
+            line.className = `terminal-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+            while (terminal.children.length > 50) terminal.removeChild(terminal.firstChild);
+        }
+
+        function clearKeysConsole() {
+            document.getElementById('keysTerminal').innerHTML = '<div class="terminal-line info">Console cleared</div>';
+        }
+
+        // Clipboard helper
+        async function copyToClipboard(text, button) {
+            try {
+                await navigator.clipboard.writeText(text);
+                const originalText = button.textContent;
+                button.textContent = 'COPIED!';
+                button.style.background = 'var(--accent-success)';
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '';
+                }, 1500);
+                keysLog('Public key copied to clipboard', 'info');
+            } catch (e) {
+                keysLog('Failed to copy: ' + e.message, 'error');
+            }
+        }
+
+        // Display keys in the keys list
+        function displayKeys(keys) {
+            const container = document.getElementById('keysListBox');
+            const countEl = document.getElementById('keysCount');
+            const noKeysMsg = document.getElementById('noKeysMsg');
+
+            countEl.textContent = `${keys.length} key${keys.length !== 1 ? 's' : ''}`;
+
+            if (keys.length === 0) {
+                noKeysMsg.style.display = 'flex';
+                // Remove any existing key items
+                container.querySelectorAll('.key-item').forEach(el => el.remove());
+                return;
+            }
+
+            noKeysMsg.style.display = 'none';
+
+            // Remove existing key items
+            container.querySelectorAll('.key-item').forEach(el => el.remove());
+
+            // Add each key
+            keys.forEach((key, index) => {
+                const keyItem = document.createElement('div');
+                keyItem.className = 'key-item';
+                keyItem.style.cssText = 'background: var(--bg-surface); border-radius: 8px; padding: 12px; margin-bottom: 12px;';
+
+                const shortKey = key.public_key.substring(0, 24) + '...' + key.public_key.slice(-8);
+
+                keyItem.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="color: var(--lcars-gold); font-family: 'Orbitron', monospace; font-size: 11px;">KEY ${index + 1} - ${key.key_type || 'aura'}</span>
+                        <span style="color: var(--text-muted); font-size: 10px;">${key.algorithm || 'SPHINCS+-256s'}</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <code style="flex: 1; background: var(--bg-void); padding: 8px; border-radius: 4px; font-size: 10px; color: var(--accent-success); word-break: break-all; font-family: 'JetBrains Mono', monospace;">${shortKey}</code>
+                        <button class="btn btn-secondary btn-sm" onclick="copyToClipboard('${key.public_key}', this)" style="white-space: nowrap;">COPY</button>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 10px; color: var(--text-muted);">
+                        Full key saved at: <span style="color: var(--lcars-blue-light);">${key.path || 'keystore'}</span>
+                    </div>
+                `;
+
+                container.appendChild(keyItem);
+            });
+        }
+
+        // Keys
+        async function checkKeystore() {
+            keysLog('Checking keystore...', 'info');
+            const result = await controllerRequest('/keystore', 'POST', { action: 'list' });
+            if (result?.success) {
+                const keys = result.keys || [];
+                displayKeys(keys);
+                if (keys.length > 0) {
+                    keysLog(`Found ${keys.length} key(s) in keystore`, 'info');
+                    keys.forEach((k, i) => {
+                        keysLog(`  Key ${i+1}: ${k.key_type || 'aura'} - ${k.public_key.substring(0, 24)}...`, 'info');
+                    });
+                } else {
+                    keysLog('No keys found in keystore', 'warning');
+                }
+            } else {
+                keysLog('Failed to check keystore: ' + (result?.message || 'Controller offline'), 'error');
+            }
+        }
+
+        async function generateKey() {
+            keysLog('Generating new SPHINCS+-256s keypair...', 'warning');
+            const result = await controllerRequest('/keystore', 'POST', { action: 'generate' });
+            if (result?.success) {
+                keysLog('Key generated successfully!', 'info');
+                if (result.keys?.[0]) {
+                    const key = result.keys[0];
+                    keysLog(`Public key: ${key.public_key.substring(0, 40)}...`, 'info');
+                    keysLog(`Saved to: ${key.path || 'keystore directory'}`, 'info');
+                }
+                // Refresh the keystore list
+                checkKeystore();
+            } else {
+                keysLog(`Failed: ${result?.message || 'Unknown error'}`, 'error');
+            }
+        }
+
+        async function injectKey() {
+            const seed = document.getElementById('sudoSeed').value;
+            if (!seed) {
+                keysLog('Enter a seed phrase first (e.g., //Alice)', 'warning');
+                return;
+            }
+
+            keysLog(`Injecting key from seed: ${seed.startsWith('//') ? seed : '****'}`, 'info');
+            keysLog('Note: Inject requires running node with RPC enabled', 'warning');
+            const result = await controllerRequest('/keystore', 'POST', { action: 'inject', seed: seed });
+            if (result?.success) {
+                keysLog('Key injected successfully!', 'info');
+                if (result.keys?.[0]) {
+                    keysLog(`Public key: ${result.keys[0].public_key.substring(0, 40)}...`, 'info');
+                }
+                // Refresh the keystore list
+                checkKeystore();
+            } else {
+                keysLog(`Failed: ${result?.message || 'Unknown error'}`, 'error');
+            }
+        }
+
+        function loadSudoAccount() {
+            const seed = document.getElementById('sudoSeed').value;
+            if (!seed) {
+                log('Enter a seed phrase', 'warning');
+                return;
+            }
+            sudoAccount = { seed };
+            document.getElementById('sudoInfo').style.display = 'block';
+            document.getElementById('sudoAddress').textContent = seed === '//Alice' ? '5GrwvaEF...utQY' : 'Custom';
+            log('Sudo account loaded', 'info');
+        }
+
+        // ===========================================
+        // GOVERNANCE FUNCTIONS
+        // ===========================================
+
+        // Dev account seeds (from validator-governance-cli.py)
+        const DEV_ACCOUNTS = {
+            alice: '2eb5fca9ecb08243d333e38adbc99a786edea20f8f88c51b5703754eef4d7a66183e03c1de99dc133c29c5cde6a984f5',
+            bob: '034a9b6570680a960ff781fec37012c355cbf698e26788b6f3b351daec75beea101f9c3b8b07fefa1d84d8b48ea02f1e',
+            charlie: 'b2e5b1dd89b389f61b108bff36755bd0b5208aac741233e538a464dbd841b5bf68cc36bde662e8fde70fd41cdd605766'
+        };
+
+        // Pallet indices (from runtime)
+        const VALIDATOR_GOVERNANCE_INDEX = 41;
+        const VALIDATOR_REWARDS_INDEX = 40;
+
+        function govLog(message, type = 'info') {
+            const terminal = document.getElementById('govTerminal');
+            const line = document.createElement('div');
+            line.className = `terminal-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+            while (terminal.children.length > 50) terminal.removeChild(terminal.firstChild);
+        }
+
+        function clearGovConsole() {
+            document.getElementById('govTerminal').innerHTML = '<div class="terminal-line info">Console cleared</div>';
+        }
+
+        async function proposeValidator() {
+            const account = document.getElementById('proposeValidatorAccount').value.trim();
+            const signer = document.getElementById('proposeSigner').value;
+
+            if (!account || !account.startsWith('0x')) {
+                govLog('Please enter a valid validator account (0x...)', 'error');
+                return;
+            }
+
+            govLog(`Proposing validator: ${account.substring(0, 20)}...`, 'info');
+            govLog(`Signer: ${signer}`, 'info');
+
+            try {
+                // Call custom RPC for quantum-signed extrinsic
+                const callData = account.replace('0x', '');
+                const result = await rpc('quantumharmony_submitSignedExtrinsic', [
+                    '0x' + VALIDATOR_GOVERNANCE_INDEX.toString(16).padStart(2, '0') + '00' + callData,
+                    '0x' + DEV_ACCOUNTS[signer]
+                ]);
+
+                if (result) {
+                    govLog(`Proposal submitted! TX: ${result.substring(0, 20)}...`, 'info');
+                    govLog('Wait for next block to see proposal in list.', 'info');
+                    setTimeout(refreshProposals, 6000);
+                } else {
+                    govLog('Transaction failed - check node connection', 'error');
+                }
+            } catch (e) {
+                govLog(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function refreshProposals() {
+            govLog('Refreshing proposals...', 'info');
+
+            try {
+                // Query NextProposalId to get count
+                // Storage: twox128("ValidatorGovernance") + twox128("NextProposalId")
+                const result = await rpc('state_getStorage', ['0x' +
+                    '5c41d26de442c8c2bb8a08df2fdc0ab3' + // twox128("ValidatorGovernance")
+                    'f485e09e76a76c90df1caaab2dcc87f5'   // twox128("NextProposalId")
+                ]);
+
+                if (result) {
+                    const nextId = parseInt(result.slice(2), 16);
+                    document.getElementById('totalProposals').textContent = nextId;
+                    document.getElementById('activeProposals').textContent = nextId; // Simplified
+                    govLog(`Found ${nextId} proposal(s)`, 'info');
+
+                    if (nextId > 0) {
+                        displayProposals(nextId);
+                    }
+                } else {
+                    document.getElementById('totalProposals').textContent = '0';
+                    document.getElementById('activeProposals').textContent = '0';
+                    govLog('No proposals found', 'info');
+                }
+            } catch (e) {
+                govLog(`Error querying proposals: ${e.message}`, 'error');
+            }
+        }
+
+        async function displayProposals(count) {
+            const container = document.getElementById('proposalsList');
+            const noMsg = document.getElementById('noProposalsMsg');
+
+            // Clear existing proposals
+            container.querySelectorAll('.proposal-item').forEach(el => el.remove());
+
+            if (count === 0) {
+                noMsg.style.display = 'flex';
+                return;
+            }
+
+            noMsg.style.display = 'none';
+
+            // Display proposal cards (simplified - would need full storage queries)
+            for (let i = 0; i < count; i++) {
+                const item = document.createElement('div');
+                item.className = 'proposal-item';
+                item.style.cssText = 'background: var(--bg-surface); border-radius: 8px; padding: 16px; margin-bottom: 12px;';
+
+                item.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span style="color: var(--lcars-gold); font-family: 'Orbitron', monospace; font-size: 14px;">PROPOSAL #${i}</span>
+                        <span style="color: var(--accent-warning); font-size: 12px; padding: 4px 12px; background: rgba(255,183,77,0.1); border-radius: 20px;">ACTIVE</span>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px;">
+                        Proposed validator addition - Click vote to participate
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-success btn-sm" onclick="voteOnProposal(${i}, true)" style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 16px;">👍</span> APPROVE
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="voteOnProposal(${i}, false)" style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 16px;">👎</span> REJECT
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="finalizeProposal(${i})">FINALIZE</button>
+                    </div>
+                `;
+
+                container.appendChild(item);
+            }
+        }
+
+        async function voteOnProposal(proposalId, approve) {
+            const signer = document.getElementById('proposeSigner').value;
+            govLog(`Voting ${approve ? 'YES' : 'NO'} on proposal #${proposalId}...`, 'info');
+
+            try {
+                // Encode: proposal_id (u32 LE) + approve (bool)
+                const idBytes = proposalId.toString(16).padStart(8, '0');
+                const idLE = idBytes.match(/../g).reverse().join('');
+                const approveHex = approve ? '01' : '00';
+
+                const result = await rpc('quantumharmony_submitSignedExtrinsic', [
+                    '0x' + VALIDATOR_GOVERNANCE_INDEX.toString(16).padStart(2, '0') + '01' + idLE + approveHex,
+                    '0x' + DEV_ACCOUNTS[signer]
+                ]);
+
+                if (result) {
+                    govLog(`Vote submitted! TX: ${result.substring(0, 20)}...`, 'info');
+                } else {
+                    govLog('Vote failed - are you a validator?', 'error');
+                }
+            } catch (e) {
+                govLog(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function finalizeProposal(proposalId) {
+            const signer = document.getElementById('proposeSigner').value;
+            govLog(`Finalizing proposal #${proposalId}...`, 'info');
+
+            try {
+                const idBytes = proposalId.toString(16).padStart(8, '0');
+                const idLE = idBytes.match(/../g).reverse().join('');
+
+                const result = await rpc('quantumharmony_submitSignedExtrinsic', [
+                    '0x' + VALIDATOR_GOVERNANCE_INDEX.toString(16).padStart(2, '0') + '02' + idLE,
+                    '0x' + DEV_ACCOUNTS[signer]
+                ]);
+
+                if (result) {
+                    govLog(`Finalization submitted! TX: ${result.substring(0, 20)}...`, 'info');
+                    setTimeout(refreshProposals, 6000);
+                } else {
+                    govLog('Finalization failed - voting period may not be over', 'error');
+                }
+            } catch (e) {
+                govLog(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        // ===========================================
+        // REWARDS FUNCTIONS
+        // ===========================================
+
+        function rewardsLog(message, type = 'info') {
+            const terminal = document.getElementById('rewardsTerminal');
+            const line = document.createElement('div');
+            line.className = `terminal-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+            while (terminal.children.length > 50) terminal.removeChild(terminal.firstChild);
+        }
+
+        function clearRewardsConsole() {
+            document.getElementById('rewardsTerminal').innerHTML = '<div class="terminal-line info">Console cleared</div>';
+        }
+
+        async function refreshRewards() {
+            rewardsLog('Refreshing rewards data...', 'info');
+
+            // For now, display placeholder info
+            // Full implementation requires querying ValidatorRewards storage
+            rewardsLog('Querying validator rewards storage...', 'info');
+
+            try {
+                const result = await rpc('state_getRuntimeVersion');
+                if (result && result.specVersion >= 17) {
+                    rewardsLog(`Runtime v${result.specVersion} - Enhanced rewards available`, 'info');
+                    document.getElementById('certLevel').textContent = 'Uncertified';
+                    document.getElementById('rewardMultiplier').textContent = '70%';
+                } else if (result) {
+                    rewardsLog(`Runtime v${result.specVersion} - Basic rewards`, 'info');
+                }
+            } catch (e) {
+                rewardsLog(`Error: ${e.message}`, 'error');
+            }
+        }
+
+        async function stakeTokens() {
+            const amount = document.getElementById('stakeAmount').value;
+            if (!amount || amount <= 0) {
+                rewardsLog('Please enter a valid stake amount', 'error');
+                return;
+            }
+
+            rewardsLog(`Staking ${amount} QHM...`, 'warning');
+            rewardsLog('Note: Staking requires polkadot-js or custom signing', 'info');
+            // Would integrate with quantumharmony_submitSignedExtrinsic for staking call
+        }
+
+        async function requestUnstake() {
+            const amount = document.getElementById('unstakeAmount').value;
+            if (!amount || amount <= 0) {
+                rewardsLog('Please enter a valid unstake amount', 'error');
+                return;
+            }
+
+            rewardsLog(`Requesting unstake of ${amount} QHM...`, 'warning');
+            rewardsLog('100 block cooldown will apply', 'info');
+            // Would integrate with quantumharmony_submitSignedExtrinsic
+        }
+
+        async function claimRewards() {
+            rewardsLog('Claiming pending rewards...', 'warning');
+            rewardsLog('Rate limit: 1 claim per 10 blocks', 'info');
+            // Would integrate with quantumharmony_submitSignedExtrinsic
+        }
+
+        async function submitUptimeProof() {
+            rewardsLog('Submitting uptime proof...', 'info');
+            // This would be called automatically by the node in production
+            rewardsLog('Uptime proofs are submitted automatically by validator nodes', 'info');
+        }
+
+        // Quantum Status
+        async function updateQuantumStatus() {
+            try {
+                const res = await fetch(config.qkd + '/health');
+                document.getElementById('qkdStatus').classList.toggle('offline', !res.ok);
+                document.getElementById('qkdStatusText').textContent = res.ok ? 'Online' : 'Offline';
+            } catch {
+                document.getElementById('qkdStatus').classList.add('offline');
+                document.getElementById('qkdStatusText').textContent = 'Offline';
+            }
+
+            try {
+                const res = await fetch(config.hub + '/api/health');
+                document.getElementById('hubStatus').classList.toggle('offline', !res.ok);
+                document.getElementById('hubStatusText').textContent = res.ok ? 'Online' : 'Offline';
+                if (res.ok) {
+                    const health = await res.json();
+                    if (health.sources) {
+                        document.getElementById('hubSources').textContent = health.sources.filter(s => s.healthy).length + '/' + health.sources.length;
+                    }
+                }
+            } catch {
+                document.getElementById('hubStatus').classList.add('offline');
+                document.getElementById('hubStatusText').textContent = 'Offline';
+            }
+        }
+
+        // Settings
+        function saveSettings() {
+            config.rpc = document.getElementById('settingsRpc').value;
+            config.qkd = document.getElementById('settingsQkd').value;
+            config.hub = document.getElementById('settingsHub').value;
+            config.controller = document.getElementById('settingsController').value;
+            Object.entries(config).forEach(([k, v]) => localStorage.setItem(k, v));
+            log('Settings saved', 'info');
+            updateStatus();
+        }
+
+        function loadSettings() {
+            document.getElementById('settingsRpc').value = config.rpc;
+            document.getElementById('settingsQkd').value = config.qkd;
+            document.getElementById('settingsHub').value = config.hub;
+            document.getElementById('settingsController').value = config.controller;
+        }
+
+        // Init
+        async function init() {
+            console.log('init() starting');
+            try {
+                loadSettings();
+                loadAvatar();
+                updateAgentModeUI();
+            } catch(e) {
+                console.error('init setup error:', e);
+            }
+            log('Connecting to ' + RPC, 'info');
+
+            console.log('Calling fetchAllData...');
+            // Fetch all data immediately
+            await fetchAllData();
+            console.log('fetchAllData complete');
+
+            // Update every 5 seconds
+            setInterval(fetchAllData, 5000);
+            setInterval(updateQuantumStatus, 15000);
+            setInterval(checkAutoStake, 30000);
+        }
+
+        // Single function to fetch all node data
+        async function fetchAllData() {
+            console.log('fetchAllData called');
+            try {
+                // 1. Health check
+                console.log('Calling system_health...');
+                const health = await rpc('system_health');
+                console.log('Health result:', health);
+
+                const $ = id => document.getElementById(id);
+
+                if (!health) {
+                    console.log('No health - marking offline');
+                    $('nodeProcessStatus')?.classList.add('offline');
+                    $('nodeProcessText') && ($('nodeProcessText').textContent = 'Offline');
+                    $('statusDot')?.classList.remove('connected');
+                    return;
+                }
+
+                console.log('Setting UI with health data');
+                $('nodeProcessStatus')?.classList.remove('offline');
+                $('nodeProcessText') && ($('nodeProcessText').textContent = 'Running');
+                $('statusDot')?.classList.add('connected');
+                $('peerCount') && ($('peerCount').textContent = health.peers);
+                $('networkPeers') && ($('networkPeers').textContent = health.peers);
+                $('syncStatus') && ($('syncStatus').textContent = health.isSyncing ? 'Syncing' : 'Synced');
+
+                // 2. Block height
+                const header = await rpc('chain_getHeader');
+                if (header?.number) {
+                    const blockNum = parseInt(header.number, 16);
+                    $('blockHeight') && ($('blockHeight').textContent = blockNum.toLocaleString());
+                    $('networkBest') && ($('networkBest').textContent = blockNum.toLocaleString());
+                }
+
+                // 3. Node info
+                const chain = await rpc('system_chain');
+                if (chain) $('chainName') && ($('chainName').textContent = chain);
+
+                const name = await rpc('system_name');
+                if (name) $('nodeName') && ($('nodeName').textContent = name);
+
+                const version = await rpc('system_version');
+                if (version) $('nodeVersion') && ($('nodeVersion').textContent = version);
+
+                const runtime = await rpc('state_getRuntimeVersion');
+                if (runtime?.specVersion) {
+                    $('runtimeVersion') && ($('runtimeVersion').textContent = 'v' + runtime.specVersion);
+                }
+
+                $('rpcEndpoint') && ($('rpcEndpoint').textContent = RPC);
+
+                // 4. Recent blocks
+                await loadRecentBlocks();
+
+                connected = true;
+                $('footerStatus') && ($('footerStatus').textContent = 'Connected');
+
+            } catch (e) {
+                console.error('fetchAllData error:', e);
+            }
+        }
+
+        // Load recent blocks
+        async function loadRecentBlocks() {
+            const container = document.getElementById('recentBlocksContainer');
+            const header = await rpc('chain_getHeader');
+            if (!header) return;
+
+            const currentBlock = parseInt(header.number, 16);
+            let html = '';
+
+            for (let i = 0; i < 5; i++) {
+                const blockNum = currentBlock - i;
+                const hash = await rpc('chain_getBlockHash', [blockNum]);
+                if (!hash) continue;
+
+                const block = await rpc('chain_getBlock', [hash]);
+                const extCount = block?.block?.extrinsics?.length || 0;
+
+                html += `<div class="info-row" style="padding:8px 0;border-bottom:1px solid var(--bg-surface);">
+                    <div style="display:flex;justify-content:space-between;width:100%">
+                        <span style="color:var(--lcars-gold);font-family:'Orbitron',monospace;font-size:13px">#${blockNum.toLocaleString()}</span>
+                        <span style="color:var(--accent-success);font-size:12px">${extCount} ext</span>
+                    </div>
+                    <div style="width:100%;margin-top:4px">
+                        <span style="color:var(--text-muted);font-size:10px;font-family:'JetBrains Mono',monospace">${hash.slice(0,10)}...${hash.slice(-6)}</span>
+                    </div>
+                </div>`;
+            }
+
+            container.innerHTML = html || '<div class="info-row"><span class="info-label">No blocks</span></div>';
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
