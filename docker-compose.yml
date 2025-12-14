@@ -23,7 +23,7 @@ services:
       - VALIDATOR=false
       - RPC_CORS=all
       - RPC_METHODS=Unsafe
-      - BOOTNODES=/ip4/51.79.26.123/tcp/30333/p2p/12D3KooWRaui4w4RJjRYmrK23gBJeM4RHE2qg84zC4w2rUcbqerX,/ip4/51.79.26.168/tcp/30333/p2p/12D3KooWCesdQDJx5A6QSh2V6PsarxnW838Rk4zbSGi2qeVEyZTx
+      - BOOTNODES=/ip4/51.79.26.123/tcp/30333/p2p/12D3KooWAKTsN87aKgybVjH1XgeQSnSwqWQNQe2XR2QzbkMYLkVF,/ip4/51.79.26.168/tcp/30333/p2p/12D3KooWDbxQhXqbf7H5Rb1hB3kp7usfZwVtZgLMftzrVCLbUa6f,/ip4/209.38.225.4/tcp/30333/p2p/12D3KooWMbFTbaTpVf56U9AZuWctrxzkcHjV9YUMYmTeFEGwhoFF
     networks:
       - quantum-net
     healthcheck:
