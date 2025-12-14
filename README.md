@@ -78,6 +78,7 @@ Replace `configs/chain-spec.json` with your chain spec.
 **Production Testnet Bootnodes:**
 - Alice: `51.79.26.123`
 - Bob: `51.79.26.168`
+- Charlie: `209.38.225.4`
 
 **Ports Required:**
 - `30333` - P2P (must be open for peers)
