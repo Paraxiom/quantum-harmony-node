@@ -6,7 +6,7 @@
 class GovernanceManager {
     constructor(rpcEndpoint = 'http://127.0.0.1:9944') {
         this.rpcEndpoint = rpcEndpoint;
-        this.PALLET_INDEX = 41; // ValidatorGovernance pallet index
+        this.PALLET_INDEX = 18; // ValidatorGovernance pallet index (0x12)
         this.CALL_INDICES = {
             proposeValidator: 0,
             vote: 1,
