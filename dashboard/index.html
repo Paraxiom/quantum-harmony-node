@@ -2066,38 +2066,40 @@
                 const pending = await keystoreManager.getPendingExtrinsics();
                 keysLog(`Node connectivity OK (${pending} pending extrinsics)`, 'info');
 
-                // Get dev accounts info
-                const devAccounts = keystoreManager.getDevAccounts();
+                // Try to generate/rotate keys to see what's in the keystore
+                // This also serves as a keystore health check
+                const keysResult = await keystoreManager.rotateKeys();
 
-                // Check if Alice's key is in the keystore
-                const alicePublic = devAccounts.alice.public;
-                const hasAlice = await keystoreManager.hasKey(alicePublic, 'aura');
-                keysLog(`Alice aura key in keystore: ${hasAlice}`, hasAlice ? 'info' : 'warning');
-
-                // Update UI
                 const keysListBox = document.getElementById('keysListBox');
                 const noKeysMsg = document.getElementById('noKeysMsg');
                 const keysCount = document.getElementById('keysCount');
 
-                if (hasAlice) {
-                    keysCount.textContent = '1+ keys';
+                if (keysResult.success && keysResult.keys) {
+                    keysLog('Session keys found/generated', 'info');
+                    keysLog(`Keys: ${keysResult.keys.substring(0, 40)}...`, 'info');
+
+                    keysCount.textContent = '1 session key';
                     noKeysMsg.style.display = 'none';
 
-                    // Show Alice key info
-                    let keyInfo = document.getElementById('aliceKeyInfo');
+                    // Show session key info
+                    let keyInfo = document.getElementById('sessionKeyInfo');
                     if (!keyInfo) {
                         keyInfo = document.createElement('div');
-                        keyInfo.id = 'aliceKeyInfo';
+                        keyInfo.id = 'sessionKeyInfo';
                         keyInfo.className = 'info-row';
                         keysListBox.appendChild(keyInfo);
                     }
                     keyInfo.innerHTML = `
-                        <span class="info-label" style="color: var(--accent-success);">Alice (Sudo)</span>
-                        <span class="info-value" style="font-size: 10px;">${alicePublic.substring(0, 20)}...</span>
+                        <span class="info-label" style="color: var(--accent-success);">Session Keys</span>
+                        <span class="info-value" style="font-size: 10px;">${keysResult.keys.substring(0, 24)}...</span>
                     `;
+
+                    // Store for later use
+                    window.lastSessionKeys = keysResult.keys;
                 } else {
                     keysCount.textContent = '0 keys';
                     noKeysMsg.style.display = 'flex';
+                    keysLog('No session keys - use GENERATE NEW KEY', 'warning');
                 }
 
                 keysLog('Keystore check complete', 'info');

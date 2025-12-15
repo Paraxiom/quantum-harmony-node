@@ -83,9 +83,13 @@ class GovernanceManager {
 
     /**
      * Submit a signed extrinsic using the quantum-safe RPC
+     * Expects struct format: { callData, signerKey }
      */
     async submitSignedExtrinsic(callData, secretKey) {
-        const result = await this.rpc('quantumharmony_submitSignedExtrinsic', [callData, secretKey]);
+        const result = await this.rpc('quantumharmony_submitSignedExtrinsic', [{
+            callData: callData,
+            signerKey: secretKey
+        }]);
         return result;
     }
 
@@ -97,8 +101,8 @@ class GovernanceManager {
     async proposeValidator(validatorAccountId, signerSecretKey, options = {}) {
         const { onLog = console.log } = options;
 
-        if (!validatorAccountId.startsWith('0x') || validatorAccountId.length !== 66) {
-            throw new Error('Invalid validator account ID. Must be 0x followed by 64 hex chars (32 bytes).');
+        if (!validatorAccountId.startsWith('0x') || (validatorAccountId.length !== 66 && validatorAccountId.length !== 130)) {
+            throw new Error('Invalid validator account ID. Must be 0x followed by 64 hex chars (32 bytes) or 128 hex chars (64 bytes).');
         }
 
         onLog(`Proposing validator: ${validatorAccountId.substring(0, 20)}...`);
