@@ -2440,76 +2440,8 @@
             });
         }
 
-        // Keys
-        async function checkKeystore() {
-            keysLog('Checking keystore...', 'info');
-            const result = await controllerRequest('/keystore', 'POST', { action: 'list' });
-            if (result?.success) {
-                const keys = result.keys || [];
-                displayKeys(keys);
-                if (keys.length > 0) {
-                    keysLog(`Found ${keys.length} key(s) in keystore`, 'info');
-                    keys.forEach((k, i) => {
-                        keysLog(`  Key ${i+1}: ${k.key_type || 'aura'} - ${k.public_key.substring(0, 24)}...`, 'info');
-                    });
-                } else {
-                    keysLog('No keys found in keystore', 'warning');
-                }
-            } else {
-                keysLog('Failed to check keystore: ' + (result?.message || 'Controller offline'), 'error');
-            }
-        }
-
-        async function generateKey() {
-            keysLog('Generating new SPHINCS+-256s keypair...', 'warning');
-            const result = await controllerRequest('/keystore', 'POST', { action: 'generate' });
-            if (result?.success) {
-                keysLog('Key generated successfully!', 'info');
-                if (result.keys?.[0]) {
-                    const key = result.keys[0];
-                    keysLog(`Public key: ${key.public_key.substring(0, 40)}...`, 'info');
-                    keysLog(`Saved to: ${key.path || 'keystore directory'}`, 'info');
-                }
-                // Refresh the keystore list
-                checkKeystore();
-            } else {
-                keysLog(`Failed: ${result?.message || 'Unknown error'}`, 'error');
-            }
-        }
-
-        async function injectKey() {
-            const seed = document.getElementById('sudoSeed').value;
-            if (!seed) {
-                keysLog('Enter a seed phrase first (e.g., //Alice)', 'warning');
-                return;
-            }
-
-            keysLog(`Injecting key from seed: ${seed.startsWith('//') ? seed : '****'}`, 'info');
-            keysLog('Note: Inject requires running node with RPC enabled', 'warning');
-            const result = await controllerRequest('/keystore', 'POST', { action: 'inject', seed: seed });
-            if (result?.success) {
-                keysLog('Key injected successfully!', 'info');
-                if (result.keys?.[0]) {
-                    keysLog(`Public key: ${result.keys[0].public_key.substring(0, 40)}...`, 'info');
-                }
-                // Refresh the keystore list
-                checkKeystore();
-            } else {
-                keysLog(`Failed: ${result?.message || 'Unknown error'}`, 'error');
-            }
-        }
-
-        function loadSudoAccount() {
-            const seed = document.getElementById('sudoSeed').value;
-            if (!seed) {
-                log('Enter a seed phrase', 'warning');
-                return;
-            }
-            sudoAccount = { seed };
-            document.getElementById('sudoInfo').style.display = 'block';
-            document.getElementById('sudoAddress').textContent = seed === '//Alice' ? '5GrwvaEF...utQY' : 'Custom';
-            log('Sudo account loaded', 'info');
-        }
+        // Legacy keys functions removed - now using KeystoreManager (defined earlier)
+        // See checkKeystore(), generateKey(), injectKey() at ~lines 2061-2167
 
         // ===========================================
         // GOVERNANCE FUNCTIONS
