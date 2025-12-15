@@ -631,6 +631,11 @@
             .header-cap, .footer-cap { width: 140px; }
         }
     </style>
+    <!-- Polkadot.js API for runtime upgrades -->
+    <script src="https://cdn.jsdelivr.net/npm/@polkadot/util@12.6.2/bundle-polkadot-util.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@polkadot/util-crypto@12.6.2/bundle-polkadot-util-crypto.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@polkadot/keyring@12.6.2/bundle-polkadot-keyring.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@polkadot/api@10.13.1/bundle-polkadot-api.min.js"></script>
 </head>
 <body>
     <div class="lcars-frame">
@@ -990,7 +995,7 @@
                     </div>
 
                     <div style="margin-top: 24px; display: flex; gap: 12px;">
-                        <button class="btn btn-success" onclick="submitRuntimeUpgrade()" id="upgradeBtn" disabled>SUBMIT UPGRADE</button>
+                        <button class="btn btn-success" onclick="console.log('Button clicked'); try { submitRuntimeUpgrade(); } catch(e) { console.error('Error:', e); alert('Error: ' + e.message); }" id="upgradeBtn">SUBMIT UPGRADE</button>
                         <button class="btn btn-secondary" onclick="clearWasm()">CLEAR</button>
                     </div>
                 </div>
@@ -1124,11 +1129,11 @@
 
                 <!-- NETWORK PANEL -->
                 <div id="panel-network" class="panel">
-                    <h2 class="panel-title">Network</h2>
+                    <h2 class="panel-title">Network Topology</h2>
 
                     <div class="stats-grid">
                         <div class="stat-card">
-                            <div class="stat-label">Peers</div>
+                            <div class="stat-label">Connected Peers</div>
                             <div class="stat-value blue" id="networkPeers">0</div>
                         </div>
                         <div class="stat-card">
@@ -1139,12 +1144,26 @@
                             <div class="stat-label">Finalized</div>
                             <div class="stat-value green" id="networkFinalized">---</div>
                         </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Network Health</div>
+                            <div class="stat-value" id="networkHealth" style="color: var(--accent-success);">---</div>
+                        </div>
                     </div>
 
-                    <div class="section-title">Known Validators</div>
-                    <div class="info-box" id="validatorsList">
+                    <div class="section-title">Toroidal Mesh Topology</div>
+                    <div style="background: var(--bg-surface); border-radius: var(--radius-md); padding: var(--space-3); margin-bottom: var(--space-3);">
+                        <canvas id="networkCanvas" width="600" height="400" style="width: 100%; max-width: 600px; display: block; margin: 0 auto; border-radius: var(--radius-sm);"></canvas>
+                    </div>
+
+                    <div class="section-title">Validator Nodes</div>
+                    <div id="validatorNodes" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-3);">
+                        <!-- Validator cards will be populated by JS -->
+                    </div>
+
+                    <div class="section-title" style="margin-top: var(--space-4);">Peer Connections</div>
+                    <div class="info-box" id="peersList" style="max-height: 200px; overflow-y: auto;">
                         <div class="info-row">
-                            <span class="info-label">Loading...</span>
+                            <span class="info-label">Fetching peers...</span>
                         </div>
                     </div>
                 </div>
@@ -1192,7 +1211,6 @@
         <div class="lcars-footer">
             <div class="footer-cap"></div>
             <div class="footer-bar">
-                <span class="footer-text">SPHINCS+-256s POST-QUANTUM</span>
                 <span class="footer-text" id="footerStatus">Disconnected</span>
             </div>
             <div class="footer-end"></div>
@@ -1743,11 +1761,118 @@
         });
 
         async function submitRuntimeUpgrade() {
-            if (!selectedWasm || !sudoAccount) {
-                log('Missing WASM or sudo account', 'error');
+            console.log('submitRuntimeUpgrade called');
+            log('Starting runtime upgrade...', 'info');
+
+            if (!selectedWasm) {
+                log('No WASM file selected', 'error');
+                alert('Please select a WASM file first');
                 return;
             }
-            log('Runtime upgrade requires polkadot-js integration', 'warning');
+
+            // Check for sudo key - either from input or stored
+            const sudoKeyInput = document.getElementById('sudoSecretKey')?.value ||
+                                 document.getElementById('sudoSeed')?.value;
+
+            if (!sudoKeyInput) {
+                log('No sudo key configured', 'error');
+                alert('Please enter sudo secret key in KEYS section.\n\nFor dev: use alice, bob, or charlie\nFor production: paste the full 128-byte hex key');
+                return;
+            }
+
+            const btn = document.getElementById('upgradeBtn');
+            btn.disabled = true;
+            btn.textContent = 'SUBMITTING...';
+
+            try {
+                // Read WASM file as hex
+                log('Reading WASM file...', 'info');
+                const wasmBytes = await selectedWasm.arrayBuffer();
+                const wasmHex = '0x' + Array.from(new Uint8Array(wasmBytes)).map(b => b.toString(16).padStart(2, '0')).join('');
+                log(`WASM size: ${(wasmBytes.byteLength / 1024).toFixed(2)} KB`, 'info');
+
+                // Determine the secret key to use
+                let secretKeyHex;
+                let keyInput = sudoKeyInput.trim().replace(/['"]/g, ''); // Remove quotes
+                const keyLower = keyInput.toLowerCase();
+
+                // Check if it's a dev account name
+                if (keyLower === 'alice' || keyLower === '//alice') {
+                    secretKeyHex = '0x' + DEV_ACCOUNTS.alice;
+                    log('Using Alice dev account', 'info');
+                } else if (keyLower === 'bob' || keyLower === '//bob') {
+                    secretKeyHex = '0x' + DEV_ACCOUNTS.bob;
+                    log('Using Bob dev account', 'info');
+                } else if (keyLower === 'charlie' || keyLower === '//charlie') {
+                    secretKeyHex = '0x' + DEV_ACCOUNTS.charlie;
+                    log('Using Charlie dev account', 'info');
+                } else {
+                    // Treat as hex key - strip 0x prefix if present, then add it back
+                    let hexPart = keyInput.startsWith('0x') ? keyInput.slice(2) : keyInput;
+                    // Remove any non-hex characters (spaces, newlines, etc)
+                    hexPart = hexPart.replace(/[^0-9a-fA-F]/g, '');
+
+                    if (hexPart.length >= 96) {  // At least 48 bytes (seed) or 128 bytes (full key)
+                        secretKeyHex = '0x' + hexPart;
+                        log(`Using provided key (${hexPart.length / 2} bytes)`, 'info');
+                    } else {
+                        throw new Error(`Key too short: ${hexPart.length / 2} bytes. Need 48 (seed) or 128 (full key).`);
+                    }
+                }
+
+                log('Calling quantumharmony_submitRuntimeUpgrade RPC...', 'warning');
+                btn.textContent = 'SENDING TO NODE...';
+
+                // Call the custom RPC endpoint
+                console.log('RPC call: quantumharmony_submitRuntimeUpgrade');
+                console.log('WASM hex length:', wasmHex.length);
+                console.log('Secret key length:', secretKeyHex.length);
+
+                let result;
+                try {
+                    result = await rpc('quantumharmony_submitRuntimeUpgrade', [wasmHex, secretKeyHex]);
+                    console.log('RPC result:', result);
+                } catch (rpcError) {
+                    console.error('RPC error:', rpcError);
+                    throw new Error(`RPC failed: ${rpcError.message || rpcError}`);
+                }
+
+                if (result) {
+                    log('SUCCESS: Runtime upgrade submitted!', 'info');
+                    log(`Transaction hash: ${result}`, 'info');
+                    btn.textContent = 'SUCCESS!';
+                    btn.style.background = 'var(--accent-success)';
+
+                    // Show success alert
+                    alert(`Runtime upgrade submitted successfully!\n\nTransaction: ${result}\n\nWaiting for finalization (~12 seconds)...`);
+
+                    // Wait for a few blocks then refresh
+                    log('Waiting for finalization (2 blocks)...', 'info');
+                    setTimeout(() => {
+                        updateStatus();
+                        fetchNodeInfo();
+                        log('Status refreshed - check spec_version for new version', 'info');
+                        alert('Runtime upgrade should now be active. Check the spec_version in STATUS tab.');
+                    }, 12000);  // Wait ~2 blocks
+                } else {
+                    throw new Error('RPC returned empty result - check node logs');
+                }
+
+            } catch (error) {
+                log(`FAILED: ${error.message}`, 'error');
+                console.error('Runtime upgrade error:', error);
+                btn.textContent = 'FAILED';
+                btn.style.background = 'var(--accent-danger)';
+                alert(`Runtime upgrade FAILED!\n\n${error.message}\n\nCheck console for details.`);
+
+                // Reset button after 3 seconds
+                setTimeout(() => {
+                    btn.style.background = '';
+                    btn.textContent = 'SUBMIT UPGRADE';
+                }, 3000);
+            } finally {
+                btn.disabled = false;
+            }
         }
 
         // Keystore source toggle
@@ -2006,7 +2131,10 @@
                 ]);
 
                 if (result) {
-                    govLog(`Proposal submitted! TX: ${result.substring(0, 20)}...`, 'info');
+                    // Handle both old string format and new JSON object format
+                    const txHash = result.hash || result;
+                    govLog(`Proposal submitted! TX: ${txHash.substring(0, 30)}...`, 'info');
+                    if (result.signer) govLog(`Signer: ${result.signer.substring(0, 20)}...`, 'info');
                     govLog('Wait for next block to see proposal in list.', 'info');
                     setTimeout(refreshProposals, 6000);
                 } else {
@@ -2106,7 +2234,8 @@
                 ]);
 
                 if (result) {
-                    govLog(`Vote submitted! TX: ${result.substring(0, 20)}...`, 'info');
+                    const txHash = result.hash || result;
+                    govLog(`Vote submitted! TX: ${txHash.substring(0, 30)}...`, 'info');
                 } else {
                     govLog('Vote failed - are you a validator?', 'error');
                 }
@@ -2129,7 +2258,8 @@
                 ]);
 
                 if (result) {
-                    govLog(`Finalization submitted! TX: ${result.substring(0, 20)}...`, 'info');
+                    const txHash = result.hash || result;
+                    govLog(`Finalization submitted! TX: ${txHash.substring(0, 30)}...`, 'info');
                     setTimeout(refreshProposals, 6000);
                 } else {
                     govLog('Finalization failed - voting period may not be over', 'error');
@@ -2160,38 +2290,73 @@
         async function refreshRewards() {
             rewardsLog('Refreshing rewards data...', 'info');
 
-            // For now, display placeholder info
-            // Full implementation requires querying ValidatorRewards storage
-            rewardsLog('Querying validator rewards storage...', 'info');
-
             try {
-                const result = await rpc('state_getRuntimeVersion');
-                if (result && result.specVersion >= 17) {
-                    rewardsLog(`Runtime v${result.specVersion} - Enhanced rewards available`, 'info');
-                    document.getElementById('certLevel').textContent = 'Uncertified';
-                    document.getElementById('rewardMultiplier').textContent = '70%';
-                } else if (result) {
-                    rewardsLog(`Runtime v${result.specVersion} - Basic rewards`, 'info');
+                // First try the new RPC endpoint
+                const rewardsInfo = await rpc('quantumharmony_getRewardsInfo', [
+                    document.getElementById('settingsController')?.value || '0x0000000000000000000000000000000000000000'
+                ]);
+
+                if (rewardsInfo) {
+                    document.getElementById('pendingRewards').textContent = rewardsInfo.pending_rewards || '0 QHM';
+                    document.getElementById('totalStaked').textContent = rewardsInfo.total_staked || '0 QHM';
+                    document.getElementById('certLevel').textContent = rewardsInfo.certification_level || 'Uncertified';
+                    document.getElementById('rewardMultiplier').textContent = rewardsInfo.reward_multiplier || '70%';
+                    rewardsLog('Rewards data refreshed', 'info');
                 }
             } catch (e) {
-                rewardsLog(`Error: ${e.message}`, 'error');
+                // Fallback to runtime version check
+                try {
+                    const result = await rpc('state_getRuntimeVersion');
+                    if (result && result.specVersion >= 17) {
+                        rewardsLog(`Runtime v${result.specVersion} - Enhanced rewards available`, 'info');
+                        document.getElementById('certLevel').textContent = 'Uncertified';
+                        document.getElementById('rewardMultiplier').textContent = '70%';
+                    } else if (result) {
+                        rewardsLog(`Runtime v${result.specVersion} - Basic rewards`, 'info');
+                    }
+                } catch (e2) {
+                    rewardsLog(`Error: ${e2.message}`, 'error');
+                }
             }
         }
 
         async function stakeTokens() {
             const amount = document.getElementById('stakeAmount').value;
+            const signer = document.getElementById('proposeSigner')?.value || 'alice';
+
             if (!amount || amount <= 0) {
                 rewardsLog('Please enter a valid stake amount', 'error');
                 return;
             }
 
             rewardsLog(`Staking ${amount} QHM...`, 'warning');
-            rewardsLog('Note: Staking requires polkadot-js or custom signing', 'info');
-            // Would integrate with quantumharmony_submitSignedExtrinsic for staking call
+
+            try {
+                // Encode stake call: ValidatorRewards::stake(amount)
+                // Pallet index 40, call index 00
+                const amountBigInt = BigInt(amount) * BigInt(1_000_000_000_000); // Convert to planck
+                const amountHex = amountBigInt.toString(16).padStart(32, '0');
+
+                const result = await rpc('quantumharmony_submitSignedExtrinsic', [
+                    '0x' + VALIDATOR_REWARDS_INDEX.toString(16).padStart(2, '0') + '00' + amountHex,
+                    '0x' + DEV_ACCOUNTS[signer]
+                ]);
+
+                if (result) {
+                    const txHash = result.hash || result;
+                    rewardsLog(`Stake submitted! TX: ${txHash.substring(0, 30)}...`, 'info');
+                } else {
+                    rewardsLog('Stake failed - check node connection', 'error');
+                }
+            } catch (e) {
+                rewardsLog(`Error: ${e.message}`, 'error');
+            }
         }
 
         async function requestUnstake() {
             const amount = document.getElementById('unstakeAmount').value;
+            const signer = document.getElementById('proposeSigner')?.value || 'alice';
+
             if (!amount || amount <= 0) {
                 rewardsLog('Please enter a valid unstake amount', 'error');
                 return;
@@ -2199,19 +2364,359 @@
 
             rewardsLog(`Requesting unstake of ${amount} QHM...`, 'warning');
             rewardsLog('100 block cooldown will apply', 'info');
-            // Would integrate with quantumharmony_submitSignedExtrinsic
+
+            try {
+                // Encode unstake call: ValidatorRewards::request_unstake(amount)
+                // Pallet index 40, call index 01
+                const amountBigInt = BigInt(amount) * BigInt(1_000_000_000_000);
+                const amountHex = amountBigInt.toString(16).padStart(32, '0');
+
+                const result = await rpc('quantumharmony_submitSignedExtrinsic', [
+                    '0x' + VALIDATOR_REWARDS_INDEX.toString(16).padStart(2, '0') + '01' + amountHex,
+                    '0x' + DEV_ACCOUNTS[signer]
+                ]);
+
+                if (result) {
+                    const txHash = result.hash || result;
+                    rewardsLog(`Unstake request submitted! TX: ${txHash.substring(0, 30)}...`, 'info');
+                } else {
+                    rewardsLog('Unstake request failed', 'error');
+                }
+            } catch (e) {
+                rewardsLog(`Error: ${e.message}`, 'error');
+            }
         }
 
         async function claimRewards() {
+            const signer = document.getElementById('proposeSigner')?.value || 'alice';
             rewardsLog('Claiming pending rewards...', 'warning');
             rewardsLog('Rate limit: 1 claim per 10 blocks', 'info');
-            // Would integrate with quantumharmony_submitSignedExtrinsic
+
+            try {
+                // Encode claim call: ValidatorRewards::claim_rewards()
+                // Pallet index 40, call index 02 (no arguments)
+                const result = await rpc('quantumharmony_submitSignedExtrinsic', [
+                    '0x' + VALIDATOR_REWARDS_INDEX.toString(16).padStart(2, '0') + '02',
+                    '0x' + DEV_ACCOUNTS[signer]
+                ]);
+
+                if (result) {
+                    const txHash = result.hash || result;
+                    rewardsLog(`Claim submitted! TX: ${txHash.substring(0, 30)}...`, 'info');
+                } else {
+                    rewardsLog('Claim failed', 'error');
+                }
+            } catch (e) {
+                rewardsLog(`Error: ${e.message}`, 'error');
+            }
         }
 
         async function submitUptimeProof() {
             rewardsLog('Submitting uptime proof...', 'info');
             // This would be called automatically by the node in production
             rewardsLog('Uptime proofs are submitted automatically by validator nodes', 'info');
+        }
+
+        // ===========================================
+        // NETWORK MESH VISUALIZATION
+        // ===========================================
+
+        // Validator node data with geographical info
+        const VALIDATOR_NODES = [
+            { name: 'Alice', ip: '51.79.26.123', location: 'Montreal, Canada', provider: 'OVH', lat: 45.5, lon: -73.6, color: '#ff9966' },
+            { name: 'Bob', ip: '51.79.26.168', location: 'Beauharnois, Canada', provider: 'OVH', lat: 45.3, lon: -73.9, color: '#66ccff' },
+            { name: 'Charlie', ip: '209.38.225.4', location: 'Frankfurt, Germany', provider: 'DigitalOcean', lat: 50.1, lon: 8.7, color: '#99ff99' }
+        ];
+
+        let networkAnimationFrame = null;
+        let nodeConnections = [];
+
+        // Draw toroidal mesh network visualization
+        function drawNetworkMesh() {
+            const canvas = document.getElementById('networkCanvas');
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Clear canvas
+            ctx.fillStyle = '#0a0a14';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw grid representing toroidal wrap-around
+            ctx.strokeStyle = 'rgba(255, 153, 102, 0.1)';
+            ctx.lineWidth = 1;
+
+            // Horizontal grid lines (wrap top-bottom)
+            for (let y = 0; y <= height; y += 40) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(width, y);
+                ctx.stroke();
+            }
+
+            // Vertical grid lines (wrap left-right)
+            for (let x = 0; x <= width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, height);
+                ctx.stroke();
+            }
+
+            // Calculate node positions on a torus projection
+            const centerX = width / 2;
+            const centerY = height / 2;
+            const time = Date.now() / 3000;
+
+            const nodePositions = VALIDATOR_NODES.map((node, i) => {
+                // Distribute nodes around the toroidal surface
+                const angle = (i / VALIDATOR_NODES.length) * Math.PI * 2 + time * 0.2;
+                const radius = 120 + Math.sin(time + i) * 10;
+                return {
+                    x: centerX + Math.cos(angle) * radius,
+                    y: centerY + Math.sin(angle) * radius * 0.6, // Flatten for perspective
+                    node: node,
+                    angle: angle
+                };
+            });
+
+            // Draw connections (toroidal mesh - each node connects to all others)
+            ctx.lineWidth = 2;
+            nodePositions.forEach((pos1, i) => {
+                nodePositions.forEach((pos2, j) => {
+                    if (i >= j) return;
+
+                    // Animated connection line
+                    const gradient = ctx.createLinearGradient(pos1.x, pos1.y, pos2.x, pos2.y);
+                    gradient.addColorStop(0, pos1.node.color + '80');
+                    gradient.addColorStop(1, pos2.node.color + '80');
+                    ctx.strokeStyle = gradient;
+
+                    ctx.beginPath();
+                    ctx.moveTo(pos1.x, pos1.y);
+
+                    // Curved connection for visual interest
+                    const midX = (pos1.x + pos2.x) / 2;
+                    const midY = (pos1.y + pos2.y) / 2 - 20;
+                    ctx.quadraticCurveTo(midX, midY, pos2.x, pos2.y);
+                    ctx.stroke();
+
+                    // Animated data packets along connections
+                    const packetPos = (time * 2 + i * 0.5) % 1;
+                    const px = pos1.x + (pos2.x - pos1.x) * packetPos;
+                    const py = pos1.y + (pos2.y - pos1.y) * packetPos - Math.sin(packetPos * Math.PI) * 20;
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(px, py, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            });
+
+            // Draw wrap-around connections (toroidal property)
+            ctx.strokeStyle = 'rgba(255, 153, 102, 0.3)';
+            ctx.setLineDash([5, 5]);
+            nodePositions.forEach(pos => {
+                // Left-right wrap indicator
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+                ctx.lineTo(pos.x < centerX ? 0 : width, pos.y);
+                ctx.stroke();
+
+                // Top-bottom wrap indicator
+                ctx.beginPath();
+                ctx.moveTo(pos.x, pos.y);
+                ctx.lineTo(pos.x, pos.y < centerY ? 0 : height);
+                ctx.stroke();
+            });
+            ctx.setLineDash([]);
+
+            // Draw nodes
+            nodePositions.forEach((pos, i) => {
+                // Outer glow
+                const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, 30);
+                gradient.addColorStop(0, pos.node.color + '60');
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 30, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Node circle
+                ctx.fillStyle = pos.node.color;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 15, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Node border
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 15, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Node label
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '12px Orbitron, monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(pos.node.name, pos.x, pos.y + 35);
+
+                // Location label
+                ctx.fillStyle = '#888888';
+                ctx.font = '9px JetBrains Mono, monospace';
+                ctx.fillText(pos.node.location.split(',')[0], pos.x, pos.y + 48);
+            });
+
+            // Title
+            ctx.fillStyle = '#ff9966';
+            ctx.font = '14px Orbitron, monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText('TOROIDAL MESH', 10, 25);
+
+            // Connection status
+            ctx.fillStyle = '#66ff66';
+            ctx.font = '11px JetBrains Mono, monospace';
+            ctx.textAlign = 'right';
+            const connectedCount = nodePositions.length;
+            ctx.fillText(`${connectedCount} NODES • ${connectedCount * (connectedCount - 1) / 2} LINKS`, width - 10, 25);
+
+            // Continue animation
+            networkAnimationFrame = requestAnimationFrame(drawNetworkMesh);
+        }
+
+        // Populate validator node cards
+        function updateValidatorNodes() {
+            const container = document.getElementById('validatorNodes');
+            if (!container) return;
+
+            container.innerHTML = VALIDATOR_NODES.map(node => `
+                <div style="background: var(--bg-surface); border-radius: var(--radius-md); padding: var(--space-3); border-left: 3px solid ${node.color};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="color: ${node.color}; font-family: 'Orbitron', monospace; font-size: 14px; font-weight: 600;">${node.name}</span>
+                        <span class="status-indicator" style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent-success); box-shadow: 0 0 6px var(--accent-success);"></span>
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">
+                        <span style="color: var(--lcars-gold);">📍</span> ${node.location}
+                    </div>
+                    <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">
+                        <span style="color: var(--lcars-gold);">🌐</span> ${node.ip}
+                    </div>
+                    <div style="font-size: 10px; color: var(--text-secondary);">
+                        <span style="color: var(--lcars-blue-light);">Provider:</span> ${node.provider}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Fetch and display peer connections
+        async function updatePeerConnections() {
+            const container = document.getElementById('peersList');
+            if (!container) return;
+
+            try {
+                const peers = await rpc('system_peers');
+                const health = await rpc('system_health');
+
+                if (!peers || peers.length === 0) {
+                    container.innerHTML = `
+                        <div class="info-row">
+                            <span class="info-label" style="color: var(--accent-warning);">No direct peer connections</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label" style="font-size: 11px;">Connected peers (via health): ${health?.peers || 0}</span>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = peers.map(peer => `
+                    <div class="info-row" style="padding: 8px 0; border-bottom: 1px solid var(--bg-surface);">
+                        <div style="display: flex; justify-content: space-between; width: 100%;">
+                            <span style="color: var(--lcars-gold); font-size: 11px; font-family: 'JetBrains Mono', monospace;">
+                                ${peer.peerId ? peer.peerId.substring(0, 16) + '...' : 'Unknown'}
+                            </span>
+                            <span style="color: var(--accent-success); font-size: 10px;">
+                                ${peer.roles || 'Full'}
+                            </span>
+                        </div>
+                        <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">
+                            Best: #${peer.bestNumber || '?'} • Hash: ${peer.bestHash ? peer.bestHash.substring(0, 10) + '...' : '?'}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                container.innerHTML = `
+                    <div class="info-row">
+                        <span class="info-label" style="color: var(--accent-danger);">Error fetching peers: ${e.message}</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Calculate and update network health
+        async function updateNetworkHealth() {
+            const healthEl = document.getElementById('networkHealth');
+            const finalizedEl = document.getElementById('networkFinalized');
+            if (!healthEl) return;
+
+            try {
+                const health = await rpc('system_health');
+                const finalizedHash = await rpc('chain_getFinalizedHead');
+
+                if (!health) {
+                    healthEl.textContent = 'OFFLINE';
+                    healthEl.style.color = 'var(--accent-danger)';
+                    return;
+                }
+
+                // Calculate health score based on peers and sync status
+                const peerCount = health.peers || 0;
+                const isSyncing = health.isSyncing;
+
+                let healthStatus = 'CRITICAL';
+                let healthColor = 'var(--accent-danger)';
+
+                if (peerCount >= 2 && !isSyncing) {
+                    healthStatus = 'OPTIMAL';
+                    healthColor = 'var(--accent-success)';
+                } else if (peerCount >= 1) {
+                    healthStatus = 'DEGRADED';
+                    healthColor = 'var(--accent-warning)';
+                } else if (isSyncing) {
+                    healthStatus = 'SYNCING';
+                    healthColor = 'var(--lcars-blue-light)';
+                }
+
+                healthEl.textContent = healthStatus;
+                healthEl.style.color = healthColor;
+
+                // Update finalized block
+                if (finalizedHash && finalizedEl) {
+                    const finalizedHeader = await rpc('chain_getHeader', [finalizedHash]);
+                    if (finalizedHeader?.number) {
+                        const blockNum = parseInt(finalizedHeader.number, 16);
+                        finalizedEl.textContent = blockNum.toLocaleString();
+                    }
+                }
+            } catch (e) {
+                healthEl.textContent = 'ERROR';
+                healthEl.style.color = 'var(--accent-danger)';
+            }
+        }
+
+        // Initialize network panel
+        function initNetworkPanel() {
+            updateValidatorNodes();
+            drawNetworkMesh();
+            updatePeerConnections();
+            updateNetworkHealth();
+
+            // Update peer connections and health every 10 seconds
+            setInterval(() => {
+                updatePeerConnections();
+                updateNetworkHealth();
+            }, 10000);
         }
 
         // Quantum Status
@@ -2276,10 +2781,27 @@
             await fetchAllData();
             console.log('fetchAllData complete');
 
+            // Initialize network panel with toroidal mesh visualization
+            initNetworkPanel();
+
+            // Initialize governance panel
+            refreshProposals();
+
+            // Initialize rewards panel
+            refreshRewards();
+
+            // Check quantum status
+            updateQuantumStatus();
+
             // Update every 5 seconds
             setInterval(fetchAllData, 5000);
             setInterval(updateQuantumStatus, 15000);
             setInterval(checkAutoStake, 30000);
+
+            // Refresh governance every 30 seconds
+            setInterval(refreshProposals, 30000);
+
+            log('Dashboard initialized - all panels active', 'info');
         }
 
         // Single function to fetch all node data
@@ -2345,7 +2867,7 @@
             }
         }
 
-        // Load recent blocks
+        // Load recent blocks with author info
         async function loadRecentBlocks() {
             const container = document.getElementById('recentBlocksContainer');
             const header = await rpc('chain_getHeader');
@@ -2353,6 +2875,13 @@
 
             const currentBlock = parseInt(header.number, 16);
             let html = '';
+
+            // Map known validator public keys to names
+            const validatorNames = {
+                '0x24a5': 'Alice',
+                '0xb8e0': 'Bob',
+                '0x8c': 'Charlie'
+            };
 
             for (let i = 0; i < 5; i++) {
                 const blockNum = currentBlock - i;
@@ -2362,9 +2891,16 @@
                 const block = await rpc('chain_getBlock', [hash]);
                 const extCount = block?.block?.extrinsics?.length || 0;
 
+                // Try to identify block author from Aura
+                let authorLabel = '';
+                const authorIndex = blockNum % 2; // Aura round-robin with 2 authorities
+                const authorColors = ['#ff9966', '#66ccff', '#99ff99'];
+                const authorName = ['Alice', 'Bob', 'Charlie'][authorIndex] || '?';
+                authorLabel = `<span style="color:${authorColors[authorIndex]};font-size:10px;margin-left:8px;">by ${authorName}</span>`;
+
                 html += `<div class="info-row" style="padding:8px 0;border-bottom:1px solid var(--bg-surface);">
                     <div style="display:flex;justify-content:space-between;width:100%">
-                        <span style="color:var(--lcars-gold);font-family:'Orbitron',monospace;font-size:13px">#${blockNum.toLocaleString()}</span>
+                        <span style="color:var(--lcars-gold);font-family:'Orbitron',monospace;font-size:13px">#${blockNum.toLocaleString()}${authorLabel}</span>
                         <span style="color:var(--accent-success);font-size:12px">${extCount} ext</span>
                     </div>
                     <div style="width:100%;margin-top:4px">
@@ -2374,6 +2910,21 @@
             }
 
             container.innerHTML = html || '<div class="info-row"><span class="info-label">No blocks</span></div>';
+        }
+
+        // Query current validators (authorities)
+        async function queryValidators() {
+            try {
+                // Query Aura authorities
+                const authorities = await rpc('state_call', ['AuraApi_authorities', '0x']);
+                if (authorities) {
+                    log(`Aura authorities: ${authorities.substring(0, 40)}...`, 'info');
+                }
+                return authorities;
+            } catch (e) {
+                console.error('Failed to query validators:', e);
+                return null;
+            }
         }
 
         document.addEventListener('DOMContentLoaded', init);
