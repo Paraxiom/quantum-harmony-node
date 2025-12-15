@@ -2005,7 +2005,7 @@
 
             try {
                 // Create UpgradeManager instance
-                const upgradeManager = new UpgradeManager(RPC_ENDPOINT);
+                const upgradeManager = new UpgradeManager(RPC);
 
                 runtimeLog('Starting runtime upgrade...', 'info');
                 runtimeLog(`WASM file: ${selectedWasm.name}`, 'info');
@@ -2056,7 +2056,7 @@
         // KEYSTORE MANAGEMENT V2 - Using KeystoreManager
         // ============================================
 
-        const keystoreManager = new KeystoreManager(RPC_ENDPOINT);
+        const keystoreManager = new KeystoreManager(RPC);
 
         async function checkKeystore() {
             keysLog('Checking keystore via RPC...', 'info');
@@ -2171,7 +2171,7 @@
         // GOVERNANCE V2 - Using GovernanceManager
         // ============================================
 
-        const govManager = new GovernanceManager(RPC_ENDPOINT);
+        const govManager = new GovernanceManager(RPC);
 
         async function refreshGovernanceStats() {
             try {
