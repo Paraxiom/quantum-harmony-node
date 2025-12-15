@@ -2076,22 +2076,26 @@
 
                 if (keysResult.success && keysResult.keys) {
                     keysLog('Session keys found/generated', 'info');
-                    keysLog(`Keys: ${keysResult.keys.substring(0, 40)}...`, 'info');
+                    keysLog(`Keys: ${keysResult.keys}`, 'info');
 
                     keysCount.textContent = '1 session key';
                     noKeysMsg.style.display = 'none';
 
-                    // Show session key info
+                    // Show session key info with copy button
                     let keyInfo = document.getElementById('sessionKeyInfo');
                     if (!keyInfo) {
                         keyInfo = document.createElement('div');
                         keyInfo.id = 'sessionKeyInfo';
-                        keyInfo.className = 'info-row';
                         keysListBox.appendChild(keyInfo);
                     }
                     keyInfo.innerHTML = `
-                        <span class="info-label" style="color: var(--accent-success);">Session Keys</span>
-                        <span class="info-value" style="font-size: 10px;">${keysResult.keys.substring(0, 24)}...</span>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                            <span class="info-label" style="color: var(--accent-success);">Session Keys</span>
+                            <button class="btn btn-secondary btn-sm" onclick="copySessionKey()" style="padding: 2px 8px; font-size: 10px;">COPY</button>
+                        </div>
+                        <div style="background: var(--bg-void); padding: 8px; border-radius: 4px; word-break: break-all; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--lcars-gold);">
+                            ${keysResult.keys}
+                        </div>
                     `;
 
                     // Store for later use
@@ -2105,6 +2109,26 @@
                 keysLog('Keystore check complete', 'info');
             } catch (error) {
                 keysLog(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function copySessionKey() {
+            if (window.lastSessionKeys) {
+                try {
+                    await navigator.clipboard.writeText(window.lastSessionKeys);
+                    keysLog('Session key copied to clipboard!', 'info');
+                } catch (e) {
+                    // Fallback for older browsers
+                    const textarea = document.createElement('textarea');
+                    textarea.value = window.lastSessionKeys;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    keysLog('Session key copied to clipboard!', 'info');
+                }
+            } else {
+                keysLog('No session key to copy', 'error');
             }
         }
 
