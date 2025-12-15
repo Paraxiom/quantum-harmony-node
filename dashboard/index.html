@@ -636,6 +636,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@polkadot/util-crypto@12.6.2/bundle-polkadot-util-crypto.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@polkadot/keyring@12.6.2/bundle-polkadot-keyring.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@polkadot/api@10.13.1/bundle-polkadot-api.min.js"></script>
+    <!-- QuantumHarmony Manager Modules -->
+    <script src="js/upgrade-manager.js"></script>
+    <script src="js/keystore-manager.js"></script>
+    <script src="js/governance-manager.js"></script>
 </head>
 <body>
     <div class="lcars-frame">
@@ -801,8 +805,8 @@
                             <div class="stat-value gold" id="activeProposals">0</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-label">Total Proposals</div>
-                            <div class="stat-value" id="totalProposals">0</div>
+                            <div class="stat-label">Validators</div>
+                            <div class="stat-value" id="validatorCount">0</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-label">Voting Period</div>
@@ -969,6 +973,22 @@
                             <div class="stat-label">Impl Version</div>
                             <div class="stat-value" id="implVersion">---</div>
                         </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Upgrade Method</div>
+                            <div class="stat-value blue" id="upgradeMethod">Auto</div>
+                        </div>
+                    </div>
+
+                    <div class="section-title">Sudo Key (Required)</div>
+                    <div class="info-box" style="margin-bottom: 16px;">
+                        <div class="form-group" style="margin-bottom: 8px;">
+                            <label class="form-label">Sudo Secret Key</label>
+                            <input type="password" class="form-input" id="sudoSecretKey" placeholder="alice, bob, charlie, or paste 128-byte hex key">
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-muted);">
+                            Dev accounts: <code style="color: var(--lcars-gold);">alice</code>, <code style="color: var(--lcars-gold);">bob</code>, <code style="color: var(--lcars-gold);">charlie</code> |
+                            Production: paste full 128-byte SPHINCS+ secret key
+                        </div>
                     </div>
 
                     <div class="section-title">Upload Runtime WASM</div>
@@ -992,11 +1012,36 @@
                             <span class="info-label">SHA256</span>
                             <span class="info-value" id="wasmHash" style="font-size: 10px;">---</span>
                         </div>
+                        <div class="info-row">
+                            <span class="info-label">Method</span>
+                            <span class="info-value" id="wasmMethod">---</span>
+                        </div>
                     </div>
 
-                    <div style="margin-top: 24px; display: flex; gap: 12px;">
-                        <button class="btn btn-success" onclick="console.log('Button clicked'); try { submitRuntimeUpgrade(); } catch(e) { console.error('Error:', e); alert('Error: ' + e.message); }" id="upgradeBtn">SUBMIT UPGRADE</button>
+                    <!-- Progress Bar -->
+                    <div id="upgradeProgress" style="display: none; margin-top: 16px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                            <span id="progressPhase" style="font-size: 12px; color: var(--text-secondary);">Preparing...</span>
+                            <span id="progressPercent" style="font-size: 12px; color: var(--lcars-gold);">0%</span>
+                        </div>
+                        <div style="height: 8px; background: var(--bg-surface); border-radius: 4px; overflow: hidden;">
+                            <div id="progressBar" style="height: 100%; width: 0%; background: linear-gradient(90deg, var(--lcars-gold), var(--accent-success)); transition: width 0.3s ease;"></div>
+                        </div>
+                        <div id="progressDetails" style="font-size: 11px; color: var(--text-muted); margin-top: 4px;"></div>
+                    </div>
+
+                    <div style="margin-top: 24px; display: flex; gap: 12px; flex-wrap: wrap;">
+                        <button class="btn btn-success" onclick="submitRuntimeUpgradeV2()" id="upgradeBtn">SUBMIT UPGRADE</button>
+                        <button class="btn btn-secondary" onclick="submitRuntimeUpgradeV2(true)" id="chunkedBtn">CHUNKED UPGRADE</button>
                         <button class="btn btn-secondary" onclick="clearWasm()">CLEAR</button>
+                    </div>
+
+                    <div class="section-title" style="margin-top: 24px;">
+                        <span>Console Output</span>
+                        <button class="btn btn-secondary btn-sm" onclick="clearRuntimeConsole()">CLEAR</button>
+                    </div>
+                    <div class="terminal" id="runtimeTerminal" style="max-height: 180px;">
+                        <div class="terminal-line info">Runtime console ready</div>
                     </div>
                 </div>
 
@@ -1873,6 +1918,391 @@
             } finally {
                 btn.disabled = false;
             }
+        }
+
+        // ============================================
+        // RUNTIME UPGRADE V2 - Using UpgradeManager
+        // ============================================
+
+        // Runtime console helper
+        function runtimeLog(message, type = 'info') {
+            const terminal = document.getElementById('runtimeTerminal');
+            if (!terminal) return;
+            const line = document.createElement('div');
+            line.className = `terminal-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+            while (terminal.children.length > 50) terminal.removeChild(terminal.firstChild);
+        }
+
+        function clearRuntimeConsole() {
+            const terminal = document.getElementById('runtimeTerminal');
+            if (terminal) terminal.innerHTML = '<div class="terminal-line info">Console cleared</div>';
+        }
+
+        function updateUpgradeProgress(progressData) {
+            const progressDiv = document.getElementById('upgradeProgress');
+            const progressBar = document.getElementById('progressBar');
+            const progressPhase = document.getElementById('progressPhase');
+            const progressPercent = document.getElementById('progressPercent');
+            const progressDetails = document.getElementById('progressDetails');
+
+            if (progressDiv) progressDiv.style.display = 'block';
+            if (progressBar) progressBar.style.width = `${progressData.progress || 0}%`;
+            if (progressPercent) progressPercent.textContent = `${Math.round(progressData.progress || 0)}%`;
+
+            const phaseLabels = {
+                preparing: 'Preparing...',
+                initiating: 'Initiating chunked upload...',
+                uploading: 'Uploading...',
+                finalizing: 'Waiting for finalization...',
+                submitted: 'Transaction submitted',
+                complete: 'Complete!'
+            };
+            if (progressPhase) progressPhase.textContent = phaseLabels[progressData.phase] || progressData.phase;
+
+            if (progressDetails) {
+                if (progressData.chunk && progressData.totalChunks) {
+                    progressDetails.textContent = `Chunk ${progressData.chunk}/${progressData.totalChunks}`;
+                } else if (progressData.block) {
+                    progressDetails.textContent = `Block ${progressData.block}`;
+                } else {
+                    progressDetails.textContent = '';
+                }
+            }
+        }
+
+        async function submitRuntimeUpgradeV2(forceChunked = false) {
+            console.log('submitRuntimeUpgradeV2 called, forceChunked:', forceChunked);
+
+            if (!selectedWasm) {
+                runtimeLog('No WASM file selected', 'error');
+                alert('Please select a WASM file first');
+                return;
+            }
+
+            // Get sudo key from the runtime panel input or keys panel
+            const sudoKeyInput = document.getElementById('sudoSecretKey')?.value ||
+                                 document.getElementById('sudoSeed')?.value;
+
+            if (!sudoKeyInput) {
+                runtimeLog('No sudo key configured', 'error');
+                alert('Please enter sudo secret key.\n\nFor dev: use alice, bob, or charlie\nFor production: paste the full 128-byte hex key');
+                return;
+            }
+
+            const upgradeBtn = document.getElementById('upgradeBtn');
+            const chunkedBtn = document.getElementById('chunkedBtn');
+
+            upgradeBtn.disabled = true;
+            chunkedBtn.disabled = true;
+            upgradeBtn.textContent = 'SUBMITTING...';
+
+            // Show progress bar
+            const progressDiv = document.getElementById('upgradeProgress');
+            if (progressDiv) progressDiv.style.display = 'block';
+
+            try {
+                // Create UpgradeManager instance
+                const upgradeManager = new UpgradeManager(RPC_ENDPOINT);
+
+                runtimeLog('Starting runtime upgrade...', 'info');
+                runtimeLog(`WASM file: ${selectedWasm.name}`, 'info');
+                runtimeLog(`Force chunked: ${forceChunked}`, 'info');
+
+                const result = await upgradeManager.submitUpgrade(selectedWasm, sudoKeyInput, {
+                    forceChunked,
+                    onProgress: updateUpgradeProgress,
+                    onLog: (msg) => runtimeLog(msg, 'info')
+                });
+
+                if (result.success) {
+                    runtimeLog(`SUCCESS! Method: ${result.method}`, 'info');
+                    runtimeLog(`Transaction: ${result.txHash}`, 'info');
+
+                    upgradeBtn.textContent = 'SUCCESS!';
+                    upgradeBtn.style.background = 'var(--accent-success)';
+
+                    // Refresh status after a delay
+                    setTimeout(() => {
+                        updateStatus();
+                        fetchNodeInfo();
+                        runtimeLog('Status refreshed - check spec_version', 'info');
+                    }, 6000);
+
+                    alert(`Runtime upgrade submitted successfully!\n\nMethod: ${result.method}\nTransaction: ${result.txHash}`);
+                }
+
+            } catch (error) {
+                runtimeLog(`FAILED: ${error.message}`, 'error');
+                console.error('Runtime upgrade error:', error);
+                upgradeBtn.textContent = 'FAILED';
+                upgradeBtn.style.background = 'var(--accent-danger)';
+                alert(`Runtime upgrade FAILED!\n\n${error.message}`);
+            } finally {
+                upgradeBtn.disabled = false;
+                chunkedBtn.disabled = false;
+
+                // Reset button style after delay
+                setTimeout(() => {
+                    upgradeBtn.style.background = '';
+                    upgradeBtn.textContent = 'SUBMIT UPGRADE';
+                }, 3000);
+            }
+        }
+
+        // ============================================
+        // KEYSTORE MANAGEMENT V2 - Using KeystoreManager
+        // ============================================
+
+        const keystoreManager = new KeystoreManager(RPC_ENDPOINT);
+
+        async function checkKeystore() {
+            keysLog('Checking keystore via RPC...', 'info');
+
+            try {
+                // Check pending extrinsics as a connectivity test
+                const pending = await keystoreManager.getPendingExtrinsics();
+                keysLog(`Node connectivity OK (${pending} pending extrinsics)`, 'info');
+
+                // Get dev accounts info
+                const devAccounts = keystoreManager.getDevAccounts();
+
+                // Check if Alice's key is in the keystore
+                const alicePublic = devAccounts.alice.public;
+                const hasAlice = await keystoreManager.hasKey(alicePublic, 'aura');
+                keysLog(`Alice aura key in keystore: ${hasAlice}`, hasAlice ? 'info' : 'warning');
+
+                // Update UI
+                const keysListBox = document.getElementById('keysListBox');
+                const noKeysMsg = document.getElementById('noKeysMsg');
+                const keysCount = document.getElementById('keysCount');
+
+                if (hasAlice) {
+                    keysCount.textContent = '1+ keys';
+                    noKeysMsg.style.display = 'none';
+
+                    // Show Alice key info
+                    let keyInfo = document.getElementById('aliceKeyInfo');
+                    if (!keyInfo) {
+                        keyInfo = document.createElement('div');
+                        keyInfo.id = 'aliceKeyInfo';
+                        keyInfo.className = 'info-row';
+                        keysListBox.appendChild(keyInfo);
+                    }
+                    keyInfo.innerHTML = `
+                        <span class="info-label" style="color: var(--accent-success);">Alice (Sudo)</span>
+                        <span class="info-value" style="font-size: 10px;">${alicePublic.substring(0, 20)}...</span>
+                    `;
+                } else {
+                    keysCount.textContent = '0 keys';
+                    noKeysMsg.style.display = 'flex';
+                }
+
+                keysLog('Keystore check complete', 'info');
+            } catch (error) {
+                keysLog(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function generateKey() {
+            keysLog('Generating new session keys via RPC...', 'info');
+
+            try {
+                const result = await keystoreManager.rotateKeys();
+
+                if (result.success) {
+                    keysLog('New session keys generated!', 'info');
+                    keysLog(`Keys: ${result.keys.substring(0, 40)}...`, 'info');
+                    alert(`New session keys generated!\n\nKeys: ${result.keys}\n\nThese keys are now in your node's keystore.`);
+                    await checkKeystore();
+                } else {
+                    keysLog(`Failed: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                keysLog(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function injectKey() {
+            const seedInput = document.getElementById('sudoSeed')?.value?.trim();
+
+            if (!seedInput) {
+                keysLog('Please enter a dev seed (alice, bob, charlie)', 'error');
+                return;
+            }
+
+            keysLog(`Injecting key for: ${seedInput}`, 'info');
+
+            try {
+                const devAccounts = keystoreManager.getDevAccounts();
+                const seedLower = seedInput.toLowerCase();
+
+                let publicKey, suri;
+                if (seedLower === 'alice' || seedLower === '//alice') {
+                    publicKey = devAccounts.alice.public;
+                    suri = '//Alice';
+                } else if (seedLower === 'bob' || seedLower === '//bob') {
+                    publicKey = devAccounts.bob.seed || '0x' + 'b'.repeat(128);
+                    suri = '//Bob';
+                } else if (seedLower === 'charlie' || seedLower === '//charlie') {
+                    publicKey = devAccounts.charlie.seed || '0x' + 'c'.repeat(128);
+                    suri = '//Charlie';
+                } else {
+                    keysLog('Unknown dev account. Use alice, bob, or charlie.', 'error');
+                    return;
+                }
+
+                const result = await keystoreManager.insertKey('aura', suri, publicKey);
+
+                if (result.success) {
+                    keysLog(`Key injected successfully for ${seedInput}`, 'info');
+                    await checkKeystore();
+                } else {
+                    keysLog(`Injection failed: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                keysLog(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        // ============================================
+        // GOVERNANCE V2 - Using GovernanceManager
+        // ============================================
+
+        const govManager = new GovernanceManager(RPC_ENDPOINT);
+
+        async function refreshGovernanceStats() {
+            try {
+                const stats = await govManager.getStats();
+                document.getElementById('activeProposals').textContent = stats.active_proposals || 0;
+                document.getElementById('votingPeriod').textContent = `${stats.voting_period || 10} blocks`;
+
+                const proposals = await govManager.getProposals();
+                const proposalsList = document.getElementById('proposalsList');
+
+                if (proposals && proposals.length > 0) {
+                    proposalsList.innerHTML = proposals.map(p => `
+                        <div class="info-row">
+                            <span class="info-label">Proposal #${p.id}</span>
+                            <span class="info-value">${p.proposed?.substring(0, 20)}... (${p.votes_for}/${p.votes_against})</span>
+                        </div>
+                    `).join('');
+                } else {
+                    proposalsList.innerHTML = '<div class="info-row"><span class="info-label">No active proposals</span></div>';
+                }
+
+                const validators = await govManager.getValidatorSet();
+                document.getElementById('validatorCount').textContent = validators?.length || 0;
+
+            } catch (error) {
+                console.error('Governance stats error:', error);
+            }
+        }
+
+        async function proposeValidator() {
+            const validatorId = document.getElementById('proposeValidatorAccount')?.value?.trim();
+            const signerSelect = document.getElementById('proposeSigner')?.value || 'alice';
+            const sudoKey = document.getElementById('sudoSecretKey')?.value?.trim() ||
+                           document.getElementById('sudoSeed')?.value?.trim() ||
+                           signerSelect; // Fall back to dev account name
+
+            if (!validatorId) {
+                alert('Please enter a validator account ID (32-byte hex with 0x prefix)');
+                return;
+            }
+
+            govLog('Submitting validator proposal...', 'info');
+            govLog(`Validator: ${validatorId.substring(0, 20)}...`, 'info');
+            govLog(`Signer: ${signerSelect}`, 'info');
+
+            try {
+                const result = await govManager.proposeValidator(validatorId, sudoKey, {
+                    onLog: (msg) => govLog(msg, 'info')
+                });
+
+                if (result.success) {
+                    govLog(`Proposal submitted! TX: ${result.txHash}`, 'info');
+                    alert(`Validator proposal submitted!\n\nTransaction: ${result.txHash}`);
+                    await refreshGovernanceStats();
+                }
+            } catch (error) {
+                govLog(`Proposal failed: ${error.message}`, 'error');
+                alert(`Failed to submit proposal:\n${error.message}`);
+            }
+        }
+
+        // Governance console helper
+        function govLog(message, type = 'info') {
+            const terminal = document.getElementById('govTerminal');
+            if (!terminal) return;
+            const line = document.createElement('div');
+            line.className = `terminal-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+            while (terminal.children.length > 50) terminal.removeChild(terminal.firstChild);
+        }
+
+        function clearGovConsole() {
+            const terminal = document.getElementById('govTerminal');
+            if (terminal) terminal.innerHTML = '<div class="terminal-line info">Console cleared</div>';
+        }
+
+        async function voteOnProposal(proposalId, approve) {
+            const signerSelect = document.getElementById('proposeSigner')?.value || 'alice';
+            const sudoKey = document.getElementById('sudoSecretKey')?.value?.trim() ||
+                           document.getElementById('sudoSeed')?.value?.trim() ||
+                           signerSelect;
+
+            govLog(`Voting ${approve ? 'YES' : 'NO'} on proposal #${proposalId}...`, 'info');
+
+            try {
+                const result = await govManager.vote(proposalId, approve, sudoKey, {
+                    onLog: (msg) => govLog(msg, 'info')
+                });
+
+                if (result.success) {
+                    govLog(`Vote submitted! TX: ${result.txHash}`, 'info');
+                    alert(`Vote submitted!\n\nTransaction: ${result.txHash}`);
+                    await refreshGovernanceStats();
+                }
+            } catch (error) {
+                govLog(`Vote failed: ${error.message}`, 'error');
+                alert(`Failed to vote:\n${error.message}`);
+            }
+        }
+
+        async function finalizeProposal(proposalId) {
+            const signerSelect = document.getElementById('proposeSigner')?.value || 'alice';
+            const sudoKey = document.getElementById('sudoSecretKey')?.value?.trim() ||
+                           document.getElementById('sudoSeed')?.value?.trim() ||
+                           signerSelect;
+
+            govLog(`Finalizing proposal #${proposalId}...`, 'info');
+
+            try {
+                const result = await govManager.finalizeProposal(proposalId, sudoKey, {
+                    onLog: (msg) => govLog(msg, 'info')
+                });
+
+                if (result.success) {
+                    govLog(`Finalization submitted! TX: ${result.txHash}`, 'info');
+                    alert(`Proposal finalized!\n\nTransaction: ${result.txHash}`);
+                    await refreshGovernanceStats();
+                }
+            } catch (error) {
+                govLog(`Finalization failed: ${error.message}`, 'error');
+                alert(`Failed to finalize:\n${error.message}`);
+            }
+        }
+
+        // Alias for UI button
+        async function refreshProposals() {
+            govLog('Refreshing governance data...', 'info');
+            await refreshGovernanceStats();
+            govLog('Refresh complete', 'info');
         }
 
         // Keystore source toggle
