@@ -1270,8 +1270,8 @@
             window.location.href = window.location.pathname;
         }
 
-        // Always use localhost:9944 for local development
-        const RPC_URL = 'http://localhost:9944';
+        // Use nginx proxy to avoid CORS issues
+        const RPC_URL = '/rpc';
 
         let config = {
             rpc: RPC_URL,
@@ -1398,7 +1398,7 @@
         }
 
         // RPC endpoint - same pattern as working wallet
-        const RPC = 'http://127.0.0.1:9944';
+        const RPC = '/rpc';
 
         async function rpc(method, params = []) {
             try {
