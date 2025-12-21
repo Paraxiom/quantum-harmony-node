@@ -1698,8 +1698,72 @@
 
                 // Fetch recent blocks on status update
                 await refreshRecentBlocks();
+
+                // Fetch and display peers
+                await updatePeersList();
             } catch (e) {
                 console.error('Status update error:', e);
+            }
+        }
+
+        // Known validator mapping
+        const KNOWN_VALIDATORS = {
+            '12D3KooWDfWxmSK2Dz2GfrjgjPbGcQECC3noAGK49SWLvbYcR3DT': { name: 'Alice', ip: '51.79.26.123' },
+            '12D3KooWSWt1tNoYPTGjLc4NciowWjsXqRUcEXJLB9X8uC4oKc6L': { name: 'Bob', ip: '51.79.26.168' },
+            '12D3KooWJJiAaXrKFufa6FcUmCWT7eihdBRPsiQXCEDVg8yf3ZwH': { name: 'Charlie', ip: '209.38.225.4' },
+            '12D3KooWH93miqFA3KPsSjgFpwJdGw4WgnPxaLrmShPB6bbUFfWQ': { name: 'Alice', ip: '51.79.26.123' },
+            '12D3KooWCcC6Qqjzoe34tGkFSMkSvef27FkdFjd7krzgvqAa78jV': { name: 'Bob', ip: '51.79.26.168' },
+        };
+
+        async function updatePeersList() {
+            try {
+                const peers = await rpc('system_peers');
+                const container = document.getElementById('validatorsList');
+                if (!container || !peers) return;
+
+                let html = '';
+                for (const peer of peers) {
+                    const peerId = peer.peerId;
+                    const shortId = peerId.substring(0, 16) + '...';
+                    const known = KNOWN_VALIDATORS[peerId];
+                    const name = known ? known.name : 'Unknown';
+                    const ip = known ? known.ip : 'external';
+                    const role = peer.roles || 'FULL';
+                    const bestBlock = peer.bestNumber || 0;
+                    const isAuthority = role.includes('AUTHORITY');
+
+                    html += `
+                        <div class="info-row" style="border-bottom: 1px solid var(--bg-surface); padding: 8px 0;">
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div>
+                                    <span style="color: ${isAuthority ? 'var(--lcars-gold)' : 'var(--text-secondary)'}; font-weight: 600;">
+                                        ${name}
+                                    </span>
+                                    <span style="color: var(--text-muted); font-size: 11px; margin-left: 8px;">
+                                        ${ip}
+                                    </span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span style="color: ${isAuthority ? 'var(--accent-success)' : 'var(--text-secondary)'}; font-size: 11px;">
+                                        ${role}
+                                    </span>
+                                </div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-top: 4px;">
+                                <span style="color: var(--text-muted); font-size: 10px; font-family: 'JetBrains Mono', monospace;">
+                                    ${shortId}
+                                </span>
+                                <span style="color: var(--lcars-blue); font-size: 11px;">
+                                    Block #${bestBlock.toLocaleString()}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = html || '<div class="info-row"><span class="info-label">No peers connected</span></div>';
+            } catch (e) {
+                console.error('updatePeersList error:', e);
             }
         }
 
