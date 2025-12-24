@@ -1692,13 +1692,11 @@
             }
         }
 
-        // Known validator mapping
-        const KNOWN_VALIDATORS = {
-            '12D3KooWDfWxmSK2Dz2GfrjgjPbGcQECC3noAGK49SWLvbYcR3DT': { name: 'Alice', ip: '51.79.26.123' },
-            '12D3KooWSWt1tNoYPTGjLc4NciowWjsXqRUcEXJLB9X8uC4oKc6L': { name: 'Bob', ip: '51.79.26.168' },
-            '12D3KooWJJiAaXrKFufa6FcUmCWT7eihdBRPsiQXCEDVg8yf3ZwH': { name: 'Charlie', ip: '209.38.225.4' },
-            '12D3KooWH93miqFA3KPsSjgFpwJdGw4WgnPxaLrmShPB6bbUFfWQ': { name: 'Alice', ip: '51.79.26.123' },
-            '12D3KooWCcC6Qqjzoe34tGkFSMkSvef27FkdFjd7krzgvqAa78jV': { name: 'Bob', ip: '51.79.26.168' },
+        // Known validator mapping (legacy - for status tab)
+        const KNOWN_VALIDATORS_STATUS = {
+            '12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp': { name: 'Alice', ip: '51.79.26.123' },
+            '12D3KooWHdiAxVd8uMQR1hGWXccidmfCwLqcMpGwR6QcTP6QRMuD': { name: 'Bob', ip: '51.79.26.168' },
+            '12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw': { name: 'Charlie', ip: '209.38.225.4' },
         };
 
         async function updatePeersList() {
@@ -1711,7 +1709,7 @@
                 for (const peer of peers) {
                     const peerId = peer.peerId;
                     const shortId = peerId.substring(0, 16) + '...';
-                    const known = KNOWN_VALIDATORS[peerId];
+                    const known = KNOWN_VALIDATORS_STATUS[peerId];
                     const name = known ? known.name : 'Unknown';
                     const ip = known ? known.ip : 'external';
                     const role = peer.roles || 'FULL';
@@ -2919,20 +2917,29 @@
         let discoveredPeers = []; // All discovered peers with their info
         let geoCache = {}; // Cache for IP geolocation results
 
-        // Geolocation lookup using free API
+        // Geolocation lookup - non-blocking, returns cached or default immediately
         async function geolocateIP(ip) {
             if (geoCache[ip]) return geoCache[ip];
-            if (ip === 'localhost' || ip.startsWith('127.') || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+            if (!ip || ip === 'localhost' || ip.startsWith('127.') || ip.startsWith('192.168.') || ip.startsWith('10.')) {
                 return { city: 'Local', country: 'Network', isp: 'Private' };
             }
-            try {
-                const res = await fetch(`http://ip-api.com/json/${ip}?fields=city,country,isp,lat,lon`);
-                const data = await res.json();
-                geoCache[ip] = data;
-                return data;
-            } catch (e) {
-                return { city: 'Unknown', country: '', isp: 'Unknown' };
-            }
+            // Return default immediately, fetch in background
+            const defaultGeo = { city: 'Resolving...', country: '', isp: '' };
+            geoCache[ip] = defaultGeo;
+
+            // Background fetch (non-blocking)
+            fetch(`https://ipapi.co/${ip}/json/`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.city) {
+                        geoCache[ip] = { city: data.city, country: data.country_name || '', isp: data.org || '' };
+                    }
+                })
+                .catch(() => {
+                    geoCache[ip] = { city: 'Unknown', country: '', isp: '' };
+                });
+
+            return defaultGeo;
         }
 
         // Extract IP from multiaddr (e.g., /ip4/51.79.26.123/tcp/30333)
