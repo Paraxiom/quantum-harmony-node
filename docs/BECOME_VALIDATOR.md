@@ -54,38 +54,30 @@ curl -s http://localhost:9944 \
 
 ---
 
-## Step 3: Request Validator Status
+## Step 3: Submit Governance Proposal
 
-Submit your public session key via:
+Use the **Validator Governance** panel in your dashboard:
 
-- **Telegram Dev Channel:** https://t.me/+dg3-c2KFfd1iMTUx (recommended)
+1. Open http://localhost:8080
+2. Go to **Validator Governance** tab
+3. Enter your session key in "Validator Account (Public Key)"
+4. Select your signing key in "Sign As"
+5. Click **Propose**
+
+Alternatively, ask an existing validator to propose you:
+- **Telegram Dev Channel:** https://t.me/+dg3-c2KFfd1iMTUx
 - **Email:** sylvain@paraxiom.org
-
-Include:
-- Your session key (the 0x... public key from Step 2)
-- Your node name (optional)
-- Your location/provider (optional, helps with geographic distribution)
-
-**Example message:**
-```
-Validator Request
-
-Session Key: 0xa35fcf7e9fcace0d218088b1b25f86d6...
-Node Name: MyValidator
-Location: AWS us-east-1
-```
 
 ---
 
-## Step 4: Governance Vote
+## Step 4: Validator Voting
 
-After receiving your request:
+After proposal submission:
 
-1. A governance proposal is created with your public key
-2. Existing validators vote on the proposal (voting period: ~10 blocks)
-3. If approved (majority yes votes), your key is added to the pending validator set
-
-You'll receive confirmation when approved.
+1. Existing validators see your proposal in their governance panel
+2. They vote YES/NO (voting period: ~10 blocks = ~1 minute)
+3. After voting period ends, anyone can click **Finalize**
+4. If approved (majority yes votes), your key is added to the pending set
 
 ---
 
