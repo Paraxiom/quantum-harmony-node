@@ -15,7 +15,7 @@ services:
   # CORE: QuantumHarmony Blockchain Node
   # =====================================================
   node:
-    image: paraxiom/quantumharmony:latest
+    image: sylvaincormier/quantumharmony-node:latest
     platform: linux/amd64
     container_name: quantumharmony-node
     restart: unless-stopped
