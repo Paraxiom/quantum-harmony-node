@@ -1082,10 +1082,11 @@
                         For production, use GENERATE NEW KEY and register the public key with the network.
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Dev Seed (testing only)</label>
-                        <input type="text" class="form-input" id="sudoSeed" placeholder="Alice, Bob, Charlie...">
+                        <label class="form-label">Key Injection</label>
+                        <input type="text" class="form-input" id="sudoSeed" placeholder="alice/bob/charlie OR 0x... (256-char secret key)">
+                        <small style="color: #888; display: block; margin-top: 4px;">Enter dev account name or SPHINCS+ secret key (128 bytes / 256 hex chars)</small>
                     </div>
-                    <button class="btn btn-secondary" onclick="injectKey()">INJECT DEV KEY</button>
+                    <button class="btn btn-secondary" onclick="injectKey()">INJECT KEY</button>
 
                     <div class="section-title" style="margin-top: 32px;">
                         <span>Console Output</span>
@@ -2219,17 +2220,19 @@
             const seedInput = document.getElementById('sudoSeed')?.value?.trim();
 
             if (!seedInput) {
-                keysLog('Please enter a dev seed (alice, bob, charlie)', 'error');
+                keysLog('Please enter: alice/bob/charlie, or a hex key (0x...)', 'error');
                 return;
             }
 
-            keysLog(`Injecting key for: ${seedInput}`, 'info');
+            keysLog(`Injecting key for: ${seedInput.substring(0, 40)}...`, 'info');
 
             try {
                 const devAccounts = keystoreManager.getDevAccounts();
                 const seedLower = seedInput.toLowerCase();
 
                 let publicKey, suri;
+
+                // Check for dev accounts first
                 if (seedLower === 'alice' || seedLower === '//alice') {
                     publicKey = devAccounts.alice.public;
                     suri = '//Alice';
@@ -2239,15 +2242,51 @@
                 } else if (seedLower === 'charlie' || seedLower === '//charlie') {
                     publicKey = devAccounts.charlie.seed || '0x' + 'c'.repeat(128);
                     suri = '//Charlie';
+                } else if (seedInput.startsWith('0x') || /^[0-9a-fA-F]+$/.test(seedInput)) {
+                    // Handle raw hex keys (SPHINCS+)
+                    const validation = keystoreManager.validateSphincsKey(seedInput);
+
+                    if (!validation.valid) {
+                        keysLog(`Invalid key format: ${validation.message}`, 'error');
+                        return;
+                    }
+
+                    const cleanHex = seedInput.replace('0x', '').toLowerCase();
+
+                    if (validation.type === 'secret') {
+                        // SPHINCS+ secret key (128 bytes = 256 hex)
+                        // Format: [secret_seed(64 bytes) + public_key(64 bytes)]
+                        // Extract public key from last 128 hex chars
+                        publicKey = '0x' + cleanHex.slice(-128);
+                        suri = '0x' + cleanHex; // Full secret key as suri
+                        keysLog(`Detected SPHINCS+ secret key (128 bytes)`, 'info');
+                        keysLog(`Derived public key: ${publicKey.substring(0, 20)}...`, 'info');
+                    } else if (validation.type === 'seed') {
+                        // SPHINCS+ seed (48 bytes = 96 hex)
+                        suri = '0x' + cleanHex;
+                        // For seeds, we need the node to derive the public key
+                        // Try rotateKeys approach or prompt user for public key
+                        keysLog(`Detected SPHINCS+ seed (48 bytes)`, 'info');
+                        keysLog(`Note: Seed injection requires node-side derivation`, 'warn');
+                        publicKey = '0x' + cleanHex; // Placeholder - node should derive
+                    } else if (validation.type === 'public') {
+                        // Public key only - cannot inject without secret!
+                        keysLog(`This is a public key (64 bytes). Cannot inject without secret key!`, 'error');
+                        keysLog(`For key injection, provide the FULL secret key (128 bytes / 256 hex chars)`, 'error');
+                        return;
+                    }
                 } else {
-                    keysLog('Unknown dev account. Use alice, bob, or charlie.', 'error');
+                    keysLog('Unknown format. Use alice/bob/charlie or hex key (0x...)', 'error');
+                    keysLog('Secret key: 256 hex chars (128 bytes)', 'info');
+                    keysLog('Seed: 96 hex chars (48 bytes)', 'info');
                     return;
                 }
 
                 const result = await keystoreManager.insertKey('aura', suri, publicKey);
 
                 if (result.success) {
-                    keysLog(`Key injected successfully for ${seedInput}`, 'info');
+                    keysLog(`Key injected successfully!`, 'info');
+                    keysLog(`Public key: ${publicKey.substring(0, 20)}...`, 'info');
                     await checkKeystore();
                 } else {
                     keysLog(`Injection failed: ${result.message}`, 'error');
@@ -2875,10 +2914,13 @@
 
         // Validator node data with geographical info
         const VALIDATOR_NODES = [
-            { name: 'Alice', ip: '51.79.26.123', location: 'Montreal, Canada', provider: 'OVH', lat: 45.5, lon: -73.6, color: '#ff9966' },
-            { name: 'Bob', ip: '51.79.26.168', location: 'Beauharnois, Canada', provider: 'OVH', lat: 45.3, lon: -73.9, color: '#66ccff' },
-            { name: 'Charlie', ip: '209.38.225.4', location: 'Frankfurt, Germany', provider: 'DigitalOcean', lat: 50.1, lon: 8.7, color: '#99ff99' }
+            { name: 'Alice', ip: '51.79.26.123', location: 'Montreal, Canada', provider: 'OVH', lat: 45.5, lon: -73.6, color: '#ff9966', tier: 1, role: 'Validator' },
+            { name: 'Bob', ip: '51.79.26.168', location: 'Beauharnois, Canada', provider: 'OVH', lat: 45.3, lon: -73.9, color: '#66ccff', tier: 1, role: 'Validator' },
+            { name: 'Charlie', ip: '209.38.225.4', location: 'Frankfurt, Germany', provider: 'DigitalOcean', lat: 50.1, lon: 8.7, color: '#99ff99', tier: 1, role: 'Validator' }
         ];
+
+        // Local sync node
+        const LOCAL_NODE = { name: 'Operator', ip: 'localhost', location: 'Local', provider: 'Docker', color: '#ffcc00', tier: 2, role: 'Sync Node' };
 
         let networkAnimationFrame = null;
         let nodeConnections = [];
@@ -3042,7 +3084,7 @@
             const container = document.getElementById('validatorNodes');
             if (!container) return;
 
-            container.innerHTML = VALIDATOR_NODES.map(node => `
+            const renderNodeCard = (node, isLocal = false) => `
                 <div style="background: var(--bg-surface); border-radius: var(--radius-md); padding: var(--space-3); border-left: 3px solid ${node.color};">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <span style="color: ${node.color}; font-family: 'Orbitron', monospace; font-size: 14px; font-weight: 600;">${node.name}</span>
@@ -3054,11 +3096,18 @@
                     <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">
                         <span style="color: var(--lcars-gold);">🌐</span> ${node.ip}
                     </div>
-                    <div style="font-size: 10px; color: var(--text-secondary);">
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 4px;">
                         <span style="color: var(--lcars-blue-light);">Provider:</span> ${node.provider}
                     </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 10px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--bg-elevated);">
+                        <span style="color: ${node.tier === 1 ? 'var(--accent-success)' : 'var(--lcars-gold)'};">Tier ${node.tier}</span>
+                        <span style="color: var(--text-muted);">${node.role}</span>
+                    </div>
                 </div>
-            `).join('');
+            `;
+
+            // Render validators + local node
+            container.innerHTML = VALIDATOR_NODES.map(node => renderNodeCard(node)).join('') + renderNodeCard(LOCAL_NODE, true);
         }
 
         // Fetch and display peer connections

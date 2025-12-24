@@ -1,15 +1,25 @@
 # QuantumHarmony Node Operator
 # One-command deployment for node operators
+#
+# Production Validators:
+#   - Validator 1 (Montreal):    51.79.26.123  - 12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
+#   - Validator 2 (Beauharnois): 51.79.26.168  - 12D3KooWHdiAxVd8uMQR1hGWXccidmfCwLqcMpGwR6QcTP6QRMuD
+#   - Validator 3 (Frankfurt):   209.38.225.4  - 12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw
+#
+# Usage:
+#   docker-compose up -d
+#   docker-compose logs -f node
 
 services:
   # =====================================================
   # CORE: QuantumHarmony Blockchain Node
   # =====================================================
   node:
-    image: sylvaincormier/quantumharmony-node:latest
+    image: paraxiom/quantumharmony:latest
     platform: linux/amd64
     container_name: quantumharmony-node
     restart: unless-stopped
+    user: "0:0"  # Run as root to ensure volume write permissions
     ports:
       - "9944:9944"   # RPC/WebSocket
       - "30333:30333" # P2P
@@ -24,11 +34,10 @@ services:
       - "--rpc-external"
       - "--rpc-cors=all"
       - "--rpc-methods=Unsafe"
-      - "--network-backend=libp2p"
-      - "--pool-type=single-state"
-      - "--bootnodes=/ip4/51.79.26.123/tcp/30333/p2p/12D3KooWH93miqFA3KPsSjgFpwJdGw4WgnPxaLrmShPB6bbUFfWQ"
-      - "--bootnodes=/ip4/51.79.26.168/tcp/30333/p2p/12D3KooWCcC6Qqjzoe34tGkFSMkSvef27FkdFjd7krzgvqAa78jV"
-      - "--bootnodes=/ip4/209.38.225.4/tcp/30333/p2p/12D3KooWJJiAaXrKFufa6FcUmCWT7eihdBRPsiQXCEDVg8yf3ZwH"
+      # IMPORTANT: Use reserved-nodes (NOT bootnodes) to avoid SelectNextSome crash
+      - "--reserved-nodes=/ip4/51.79.26.123/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp"
+      - "--reserved-nodes=/ip4/51.79.26.168/tcp/30333/p2p/12D3KooWHdiAxVd8uMQR1hGWXccidmfCwLqcMpGwR6QcTP6QRMuD"
+      - "--reserved-nodes=/ip4/209.38.225.4/tcp/30333/p2p/12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw"
     environment:
       - NODE_NAME=${NODE_NAME:-Operator}
     networks:
