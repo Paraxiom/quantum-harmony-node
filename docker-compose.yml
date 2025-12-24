@@ -4,7 +4,7 @@
 # Production Validators:
 #   - Validator 1 (Montreal):    51.79.26.123  - 12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
 #   - Validator 2 (Beauharnois): 51.79.26.168  - 12D3KooWHdiAxVd8uMQR1hGWXccidmfCwLqcMpGwR6QcTP6QRMuD
-#   - Validator 3 (Frankfurt):   209.38.225.4  - 12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw
+#   - Validator 3 (Frankfurt):   209.38.225.4  - 12D3KooWSCufgHzV4fCwRijfH2k3abrpAJxTKxEvN1FDuRXA2U9x
 #
 # Usage:
 #   docker-compose up -d
@@ -38,7 +38,7 @@ services:
       # IMPORTANT: Use reserved-nodes (NOT bootnodes) to avoid SelectNextSome crash
       - "--reserved-nodes=/ip4/51.79.26.123/tcp/30333/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp"
       - "--reserved-nodes=/ip4/51.79.26.168/tcp/30333/p2p/12D3KooWHdiAxVd8uMQR1hGWXccidmfCwLqcMpGwR6QcTP6QRMuD"
-      - "--reserved-nodes=/ip4/209.38.225.4/tcp/30333/p2p/12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw"
+      - "--reserved-nodes=/ip4/209.38.225.4/tcp/30333/p2p/12D3KooWSCufgHzV4fCwRijfH2k3abrpAJxTKxEvN1FDuRXA2U9x"
     environment:
       - NODE_NAME=${NODE_NAME:-Operator}
     networks:
