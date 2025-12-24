@@ -2901,18 +2901,18 @@
         // NETWORK MESH VISUALIZATION
         // ===========================================
 
-        // Validator node data with geographical info
+        // Validator node data with geographical info and peer IDs for connection matching
         const VALIDATOR_NODES = [
-            { name: 'Alice', ip: '51.79.26.123', location: 'Montreal, Canada', provider: 'OVH', lat: 45.5, lon: -73.6, color: '#ff9966', tier: 1, role: 'Validator' },
-            { name: 'Bob', ip: '51.79.26.168', location: 'Beauharnois, Canada', provider: 'OVH', lat: 45.3, lon: -73.9, color: '#66ccff', tier: 1, role: 'Validator' },
-            { name: 'Charlie', ip: '209.38.225.4', location: 'Frankfurt, Germany', provider: 'DigitalOcean', lat: 50.1, lon: 8.7, color: '#99ff99', tier: 1, role: 'Validator' }
+            { name: 'Alice', ip: '51.79.26.123', peerId: '12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp', location: 'Montreal, Canada', provider: 'OVH', lat: 45.5, lon: -73.6, color: '#ff9966', tier: 1, role: 'Validator' },
+            { name: 'Bob', ip: '51.79.26.168', peerId: '12D3KooWHdiAxVd8uMQR1hGWXccidmfCwLqcMpGwR6QcTP6QRMuD', location: 'Beauharnois, Canada', provider: 'OVH', lat: 45.3, lon: -73.9, color: '#66ccff', tier: 1, role: 'Validator' },
+            { name: 'Charlie', ip: '209.38.225.4', peerId: '12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw', location: 'Frankfurt, Germany', provider: 'DigitalOcean', lat: 50.1, lon: 8.7, color: '#99ff99', tier: 1, role: 'Validator' }
         ];
 
-        // Local sync node
-        const LOCAL_NODE = { name: 'Operator', ip: 'localhost', location: 'Local', provider: 'Docker', color: '#ffcc00', tier: 2, role: 'Sync Node' };
+        // Local sync node (your node)
+        const LOCAL_NODE = { name: 'Operator', ip: 'localhost', peerId: 'local', location: 'Local', provider: 'Docker', color: '#ffcc00', tier: 2, role: 'Sync Node' };
 
         let networkAnimationFrame = null;
-        let nodeConnections = [];
+        let connectedPeerIds = []; // Stores peer IDs we're actually connected to
 
         // Draw toroidal mesh network visualization
         function drawNetworkMesh() {
@@ -2947,34 +2947,62 @@
                 ctx.stroke();
             }
 
-            // Calculate node positions on a torus projection
+            // Calculate node positions - include all validators + local operator
+            const allNodes = [...VALIDATOR_NODES, LOCAL_NODE];
             const centerX = width / 2;
             const centerY = height / 2;
             const time = Date.now() / 3000;
 
-            const nodePositions = VALIDATOR_NODES.map((node, i) => {
+            const nodePositions = allNodes.map((node, i) => {
                 // Distribute nodes around the toroidal surface
-                const angle = (i / VALIDATOR_NODES.length) * Math.PI * 2 + time * 0.2;
-                const radius = 120 + Math.sin(time + i) * 10;
+                const angle = (i / allNodes.length) * Math.PI * 2 + time * 0.2;
+                const radius = 100 + Math.sin(time + i) * 10;
+                // Local node positioned slightly inside the ring
+                const nodeRadius = node.peerId === 'local' ? radius * 0.6 : radius;
                 return {
-                    x: centerX + Math.cos(angle) * radius,
-                    y: centerY + Math.sin(angle) * radius * 0.6, // Flatten for perspective
+                    x: centerX + Math.cos(angle) * nodeRadius,
+                    y: centerY + Math.sin(angle) * nodeRadius * 0.6, // Flatten for perspective
                     node: node,
-                    angle: angle
+                    angle: angle,
+                    isConnected: node.peerId === 'local' || connectedPeerIds.includes(node.peerId)
                 };
             });
 
-            // Draw connections (toroidal mesh - each node connects to all others)
+            // Find local node position for drawing connections
+            const localNodePos = nodePositions.find(p => p.node.peerId === 'local');
+
+            // Draw connections - only show actual connections from local node
             ctx.lineWidth = 2;
+            let linkCount = 0;
+
             nodePositions.forEach((pos1, i) => {
                 nodePositions.forEach((pos2, j) => {
                     if (i >= j) return;
 
+                    // Only draw connection if:
+                    // 1. One of them is the local node AND the other is connected
+                    // 2. OR both are validators (they're always connected to each other)
+                    const isLocalToValidator = (pos1.node.peerId === 'local' && pos2.isConnected) ||
+                                               (pos2.node.peerId === 'local' && pos1.isConnected);
+                    const isBetweenValidators = pos1.node.peerId !== 'local' && pos2.node.peerId !== 'local';
+
+                    if (!isLocalToValidator && !isBetweenValidators) return;
+
+                    // Check if local node is connected to this validator
+                    if (pos1.node.peerId === 'local' && !connectedPeerIds.includes(pos2.node.peerId)) return;
+                    if (pos2.node.peerId === 'local' && !connectedPeerIds.includes(pos1.node.peerId)) return;
+
+                    linkCount++;
+
                     // Animated connection line
                     const gradient = ctx.createLinearGradient(pos1.x, pos1.y, pos2.x, pos2.y);
-                    gradient.addColorStop(0, pos1.node.color + '80');
-                    gradient.addColorStop(1, pos2.node.color + '80');
+                    const alpha = (pos1.node.peerId === 'local' || pos2.node.peerId === 'local') ? 'cc' : '80';
+                    gradient.addColorStop(0, pos1.node.color + alpha);
+                    gradient.addColorStop(1, pos2.node.color + alpha);
                     ctx.strokeStyle = gradient;
+
+                    // Thicker line for local connections
+                    ctx.lineWidth = (pos1.node.peerId === 'local' || pos2.node.peerId === 'local') ? 3 : 2;
 
                     ctx.beginPath();
                     ctx.moveTo(pos1.x, pos1.y);
@@ -2997,58 +3025,67 @@
                 });
             });
 
-            // Draw wrap-around connections (toroidal property)
-            ctx.strokeStyle = 'rgba(255, 153, 102, 0.3)';
+            // Draw wrap-around connections (toroidal property) - only for connected validators
+            ctx.strokeStyle = 'rgba(255, 153, 102, 0.2)';
             ctx.setLineDash([5, 5]);
             nodePositions.forEach(pos => {
+                if (pos.node.peerId === 'local') return; // Skip local node for wrap lines
+                if (!pos.isConnected && pos.node.peerId !== 'local') return; // Skip unconnected
+
                 // Left-right wrap indicator
                 ctx.beginPath();
                 ctx.moveTo(pos.x, pos.y);
                 ctx.lineTo(pos.x < centerX ? 0 : width, pos.y);
-                ctx.stroke();
-
-                // Top-bottom wrap indicator
-                ctx.beginPath();
-                ctx.moveTo(pos.x, pos.y);
-                ctx.lineTo(pos.x, pos.y < centerY ? 0 : height);
                 ctx.stroke();
             });
             ctx.setLineDash([]);
 
             // Draw nodes
             nodePositions.forEach((pos, i) => {
-                // Outer glow
+                const isConnected = pos.node.peerId === 'local' || connectedPeerIds.includes(pos.node.peerId);
+                const nodeSize = pos.node.peerId === 'local' ? 18 : 15;
+
+                // Outer glow - dimmer for unconnected
+                const glowAlpha = isConnected ? '60' : '20';
                 const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, 30);
-                gradient.addColorStop(0, pos.node.color + '60');
+                gradient.addColorStop(0, pos.node.color + glowAlpha);
                 gradient.addColorStop(1, 'transparent');
                 ctx.fillStyle = gradient;
                 ctx.beginPath();
                 ctx.arc(pos.x, pos.y, 30, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Node circle
-                ctx.fillStyle = pos.node.color;
+                // Node circle - dimmer for unconnected
+                ctx.fillStyle = isConnected ? pos.node.color : pos.node.color + '60';
                 ctx.beginPath();
-                ctx.arc(pos.x, pos.y, 15, 0, Math.PI * 2);
+                ctx.arc(pos.x, pos.y, nodeSize, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Node border
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
+                // Node border - different style for local node
+                ctx.strokeStyle = pos.node.peerId === 'local' ? '#ffcc00' : (isConnected ? '#ffffff' : '#666666');
+                ctx.lineWidth = pos.node.peerId === 'local' ? 3 : 2;
                 ctx.beginPath();
-                ctx.arc(pos.x, pos.y, 15, 0, Math.PI * 2);
+                ctx.arc(pos.x, pos.y, nodeSize, 0, Math.PI * 2);
                 ctx.stroke();
 
+                // Connection status indicator
+                if (!isConnected && pos.node.peerId !== 'local') {
+                    ctx.fillStyle = '#ff4444';
+                    ctx.font = '16px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('✗', pos.x, pos.y + 5);
+                }
+
                 // Node label
-                ctx.fillStyle = '#ffffff';
-                ctx.font = '12px Orbitron, monospace';
+                ctx.fillStyle = isConnected ? '#ffffff' : '#888888';
+                ctx.font = pos.node.peerId === 'local' ? 'bold 12px Orbitron, monospace' : '12px Orbitron, monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText(pos.node.name, pos.x, pos.y + 35);
+                ctx.fillText(pos.node.name, pos.x, pos.y + nodeSize + 20);
 
                 // Location label
                 ctx.fillStyle = '#888888';
                 ctx.font = '9px JetBrains Mono, monospace';
-                ctx.fillText(pos.node.location.split(',')[0], pos.x, pos.y + 48);
+                ctx.fillText(pos.node.location.split(',')[0], pos.x, pos.y + nodeSize + 33);
             });
 
             // Title
@@ -3057,12 +3094,12 @@
             ctx.textAlign = 'left';
             ctx.fillText('TOROIDAL MESH', 10, 25);
 
-            // Connection status
-            ctx.fillStyle = '#66ff66';
+            // Connection status - show YOUR connections
+            const yourConnections = connectedPeerIds.length;
+            ctx.fillStyle = yourConnections >= 2 ? '#66ff66' : (yourConnections >= 1 ? '#ffcc00' : '#ff4444');
             ctx.font = '11px JetBrains Mono, monospace';
             ctx.textAlign = 'right';
-            const connectedCount = nodePositions.length;
-            ctx.fillText(`${connectedCount} NODES • ${connectedCount * (connectedCount - 1) / 2} LINKS`, width - 10, 25);
+            ctx.fillText(`YOU → ${yourConnections} PEERS • ${linkCount} LINKS`, width - 10, 25);
 
             // Continue animation
             networkAnimationFrame = requestAnimationFrame(drawNetworkMesh);
@@ -3073,27 +3110,33 @@
             const container = document.getElementById('validatorNodes');
             if (!container) return;
 
-            const renderNodeCard = (node, isLocal = false) => `
-                <div style="background: var(--bg-surface); border-radius: var(--radius-md); padding: var(--space-3); border-left: 3px solid ${node.color};">
+            const renderNodeCard = (node, isLocal = false) => {
+                const isConnected = isLocal || connectedPeerIds.includes(node.peerId);
+                const statusColor = isConnected ? 'var(--accent-success)' : 'var(--accent-danger)';
+                const statusLabel = isLocal ? 'YOU' : (isConnected ? 'Connected' : 'Not Connected');
+                const opacity = isConnected ? '1' : '0.6';
+
+                return `
+                <div style="background: var(--bg-surface); border-radius: var(--radius-md); padding: var(--space-3); border-left: 3px solid ${node.color}; opacity: ${opacity};">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <span style="color: ${node.color}; font-family: 'Orbitron', monospace; font-size: 14px; font-weight: 600;">${node.name}</span>
-                        <span class="status-indicator" style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent-success); box-shadow: 0 0 6px var(--accent-success);"></span>
+                        <span class="status-indicator" style="width: 8px; height: 8px; border-radius: 50%; background: ${statusColor}; box-shadow: 0 0 6px ${statusColor};" title="${statusLabel}"></span>
                     </div>
                     <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">
-                        <span style="color: var(--lcars-gold);">📍</span> ${node.location}
+                        📍 ${node.location}
                     </div>
                     <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">
-                        <span style="color: var(--lcars-gold);">🌐</span> ${node.ip}
+                        🌐 ${node.ip}
                     </div>
                     <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 4px;">
                         <span style="color: var(--lcars-blue-light);">Provider:</span> ${node.provider}
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 10px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--bg-elevated);">
                         <span style="color: ${node.tier === 1 ? 'var(--accent-success)' : 'var(--lcars-gold)'};">Tier ${node.tier}</span>
-                        <span style="color: var(--text-muted);">${node.role}</span>
+                        <span style="color: ${isLocal ? 'var(--lcars-gold)' : 'var(--text-muted)'};">${isLocal ? 'Sync Node' : node.role}</span>
                     </div>
                 </div>
-            `;
+            `};
 
             // Render validators + local node
             container.innerHTML = VALIDATOR_NODES.map(node => renderNodeCard(node)).join('') + renderNodeCard(LOCAL_NODE, true);
@@ -3108,6 +3151,9 @@
                 const peers = await rpc('system_peers');
                 const health = await rpc('system_health');
 
+                // Update global connectedPeerIds for mesh visualization
+                connectedPeerIds = (peers || []).map(p => p.peerId).filter(Boolean);
+
                 if (!peers || peers.length === 0) {
                     container.innerHTML = `
                         <div class="info-row">
@@ -3120,22 +3166,35 @@
                     return;
                 }
 
-                container.innerHTML = peers.map(peer => `
+                // Match peer IDs to known validators
+                const getPeerName = (peerId) => {
+                    const validator = VALIDATOR_NODES.find(v => v.peerId === peerId);
+                    return validator ? validator.name : null;
+                };
+
+                container.innerHTML = peers.map(peer => {
+                    const validatorName = getPeerName(peer.peerId);
+                    const roleLabel = validatorName ? 'AUTHORITY' : (peer.roles || 'Full');
+                    const roleColor = validatorName ? 'var(--accent-success)' : 'var(--text-muted)';
+
+                    return `
                     <div class="info-row" style="padding: 8px 0; border-bottom: 1px solid var(--bg-surface);">
                         <div style="display: flex; justify-content: space-between; width: 100%;">
                             <span style="color: var(--lcars-gold); font-size: 11px; font-family: 'JetBrains Mono', monospace;">
                                 ${peer.peerId ? peer.peerId.substring(0, 16) + '...' : 'Unknown'}
+                                ${validatorName ? `<span style="color: var(--lcars-blue-light); margin-left: 8px;">(${validatorName})</span>` : ''}
                             </span>
-                            <span style="color: var(--accent-success); font-size: 10px;">
-                                ${peer.roles || 'Full'}
+                            <span style="color: ${roleColor}; font-size: 10px; font-weight: ${validatorName ? 'bold' : 'normal'};">
+                                ${roleLabel}
                             </span>
                         </div>
                         <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">
                             Best: #${peer.bestNumber || '?'} • Hash: ${peer.bestHash ? peer.bestHash.substring(0, 10) + '...' : '?'}
                         </div>
                     </div>
-                `).join('');
+                `}).join('');
             } catch (e) {
+                connectedPeerIds = []; // Reset on error
                 container.innerHTML = `
                     <div class="info-row">
                         <span class="info-label" style="color: var(--accent-danger);">Error fetching peers: ${e.message}</span>
@@ -3202,9 +3261,10 @@
             updatePeerConnections();
             updateNetworkHealth();
 
-            // Update peer connections and health every 10 seconds
+            // Update peer connections, validator cards, and health every 10 seconds
             setInterval(() => {
                 updatePeerConnections();
+                updateValidatorNodes(); // Refresh cards with connection status
                 updateNetworkHealth();
             }, 10000);
         }
