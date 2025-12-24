@@ -75,9 +75,12 @@ Alternatively, ask an existing validator to propose you:
 After proposal submission:
 
 1. Existing validators see your proposal in their governance panel
-2. They vote YES/NO (voting period: ~10 blocks = ~1 minute)
-3. After voting period ends, anyone can click **Finalize**
-4. If approved (majority yes votes), your key is added to the pending set
+2. They review and vote YES/NO
+3. Voting window: 10 blocks (~1 minute) - but response time depends on validator availability
+4. After voting period ends, anyone can click **Finalize**
+5. If approved (majority yes votes), your key is added to the pending set
+
+**Note:** Validator response time varies. Join the Telegram channel for faster coordination.
 
 ---
 

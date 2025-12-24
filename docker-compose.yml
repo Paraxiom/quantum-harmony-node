@@ -31,6 +31,7 @@ services:
       - "--chain=/config/chainspec.json"
       - "--base-path=/data"
       - "--name=${NODE_NAME:-Operator}"
+      - "--validator"
       - "--rpc-external"
       - "--rpc-cors=all"
       - "--rpc-methods=Unsafe"
