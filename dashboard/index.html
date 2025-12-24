@@ -782,22 +782,7 @@
 
                 <!-- GOVERNANCE PANEL -->
                 <div id="panel-governance" class="panel">
-                    <h2 class="panel-title">
-                        Validator Governance
-                        <span class="human-required" style="margin-left: 12px;">HUMAN REQUIRED</span>
-                    </h2>
-
-                    <!-- Human Intervention Notice -->
-                    <div style="background: linear-gradient(135deg, rgba(239,83,80,0.1), rgba(248,161,0,0.1)); border: 1px solid var(--accent-warning); border-radius: var(--radius-md); padding: 16px; margin-bottom: 24px;">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                            <span style="font-size: 24px;">&#9888;</span>
-                            <span style="font-family: 'Orbitron', monospace; font-size: 14px; color: var(--accent-warning);">ESSENTIAL HUMAN INTERVENTION</span>
-                        </div>
-                        <p style="font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
-                            Governance decisions cannot be automated. All proposals and votes require your direct action.
-                            Agent Mode will <strong style="color: var(--text-primary);">never</strong> vote on your behalf - this protects network integrity and your validator stake.
-                        </p>
-                    </div>
+                    <h2 class="panel-title">Validator Governance</h2>
 
                     <div class="stats-grid">
                         <div class="stat-card">
@@ -2649,16 +2634,20 @@
 
                 if (result) {
                     const nextId = parseInt(result.slice(2), 16);
-                    document.getElementById('totalProposals').textContent = nextId;
-                    document.getElementById('activeProposals').textContent = nextId; // Simplified
+                    const totalEl = document.getElementById('totalProposals');
+                    const activeEl = document.getElementById('activeProposals');
+                    if (totalEl) totalEl.textContent = nextId;
+                    if (activeEl) activeEl.textContent = nextId;
                     govLog(`Found ${nextId} proposal(s)`, 'info');
 
                     if (nextId > 0) {
                         displayProposals(nextId);
                     }
                 } else {
-                    document.getElementById('totalProposals').textContent = '0';
-                    document.getElementById('activeProposals').textContent = '0';
+                    const totalEl = document.getElementById('totalProposals');
+                    const activeEl = document.getElementById('activeProposals');
+                    if (totalEl) totalEl.textContent = '0';
+                    if (activeEl) activeEl.textContent = '0';
                     govLog('No proposals found', 'info');
                 }
             } catch (e) {
