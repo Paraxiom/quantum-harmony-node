@@ -56,19 +56,21 @@ curl -s http://localhost:9944 \
 
 ## Step 3: Request Validator Status
 
-Email your public session key to: **sylvain@paraxiom.org**
+Submit your public session key via:
+
+- **Telegram Dev Channel:** https://t.me/+dg3-c2KFfd1iMTUx (recommended)
+- **Email:** sylvain@paraxiom.org
 
 Include:
 - Your session key (the 0x... public key from Step 2)
 - Your node name (optional)
 - Your location/provider (optional, helps with geographic distribution)
 
-**Example email:**
+**Example message:**
 ```
-Subject: QuantumHarmony Validator Request
+Validator Request
 
-Session Key: 0xa35fcf7e9fcace0d218088b1b25f86d68814541e6037297b64d3e467a1528dad28b28b8c24a599997d2267122a52b27b9c1ea7c991201d22eaf3d466d6ab8458
-
+Session Key: 0xa35fcf7e9fcace0d218088b1b25f86d6...
 Node Name: MyValidator
 Location: AWS us-east-1
 ```
@@ -140,5 +142,6 @@ docker-compose down -v
 
 ## Questions?
 
+- Telegram Dev Channel: https://t.me/+dg3-c2KFfd1iMTUx
 - GitHub Issues: https://github.com/Paraxiom/quantum-harmony-node/issues
 - Email: sylvain@paraxiom.org
