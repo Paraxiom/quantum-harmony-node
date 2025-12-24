@@ -40,6 +40,7 @@ case "${1:-}" in
         echo "Inject keys via dashboard to participate in block production."
         echo "Press Ctrl+C to stop."
         echo ""
+        docker-compose pull
         docker-compose up
         ;;
     *)
