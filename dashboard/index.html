@@ -3130,49 +3130,81 @@
             container.innerHTML = yourCard + peerCards;
         }
 
-        // Fetch and display peer connections with auto-discovery
+        // Production validator RPC endpoints for network-wide discovery
+        const VALIDATOR_RPCS = [
+            'http://51.79.26.123:9944',  // Alice
+            'http://51.79.26.168:9944',  // Bob
+            'http://209.38.225.4:9944'   // Charlie
+        ];
+
+        // Fetch peers from a remote RPC endpoint
+        async function fetchRemotePeers(rpcUrl) {
+            try {
+                const res = await fetch(rpcUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: 1, jsonrpc: '2.0', method: 'system_peers', params: [] })
+                });
+                const data = await res.json();
+                return data.result || [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        // Fetch and display peer connections with NETWORK-WIDE auto-discovery
         async function updatePeerConnections() {
             const container = document.getElementById('peersList');
             if (!container) return;
 
             try {
-                const peers = await rpc('system_peers');
-                const health = await rpc('system_health');
+                // Get local peers first
+                const localPeers = await rpc('system_peers') || [];
 
-                // Also try to get network state for IP addresses
-                let networkState = null;
-                try {
-                    networkState = await rpc('system_networkState');
-                } catch (e) { /* Optional RPC, may not be available */ }
+                // Query all production validators to discover the FULL network
+                const allRemotePeers = await Promise.all(VALIDATOR_RPCS.map(url => fetchRemotePeers(url)));
 
-                if (!peers || peers.length === 0) {
+                // Merge all peers into a unique set by peerId
+                const peerMap = new Map();
+
+                // Add local peers
+                for (const peer of localPeers) {
+                    peerMap.set(peer.peerId, { ...peer, directConnection: true });
+                }
+
+                // Add remote peers (discovered from validators)
+                for (const remotePeerList of allRemotePeers) {
+                    for (const peer of remotePeerList) {
+                        if (!peerMap.has(peer.peerId)) {
+                            peerMap.set(peer.peerId, { ...peer, directConnection: false });
+                        }
+                    }
+                }
+
+                // Filter out our own peerId
+                const myPeerId = await rpc('system_localPeerId');
+                peerMap.delete(myPeerId);
+
+                const allPeers = Array.from(peerMap.values());
+
+                if (allPeers.length === 0) {
                     discoveredPeers = [];
-                    container.innerHTML = `
-                        <div class="info-row">
-                            <span class="info-label" style="color: var(--accent-warning);">No peer connections</span>
-                        </div>
-                    `;
+                    container.innerHTML = `<div class="info-row"><span class="info-label" style="color: var(--accent-warning);">No peers discovered</span></div>`;
                     return;
                 }
 
                 // Build discovered peers list with geolocation
                 const newDiscoveredPeers = [];
 
-                for (const peer of peers) {
+                for (const peer of allPeers) {
                     const peerId = peer.peerId;
                     const known = KNOWN_VALIDATORS[peerId];
 
-                    // Try to get IP from network state
+                    // Get IP from known validators or try to extract from multiaddr
                     let ip = known?.ip || null;
-                    if (!ip && networkState?.connectedPeers?.[peerId]) {
-                        const peerState = networkState.connectedPeers[peerId];
-                        if (peerState.knownAddresses?.length > 0) {
-                            ip = extractIPFromMultiaddr(peerState.knownAddresses[0]);
-                        }
-                    }
 
                     // Get geolocation if we have an IP
-                    let geo = { city: 'Unknown', country: '', isp: 'Unknown' };
+                    let geo = { city: 'Discovering...', country: '', isp: '' };
                     if (ip) {
                         geo = await geolocateIP(ip);
                     }
@@ -3180,31 +3212,39 @@
                     // Build peer info
                     const peerInfo = {
                         peerId: peerId,
-                        name: known?.name || `Peer ${peerId.substring(peerId.length - 4)}`,
-                        ip: ip || 'Unknown',
-                        location: known?.location || (geo.city && geo.country ? `${geo.city}, ${geo.country}` : geo.city || 'Unknown'),
-                        provider: known?.provider || geo.isp || 'Unknown',
-                        color: known?.color || PEER_COLORS[peerColorIndex++ % PEER_COLORS.length],
+                        name: known?.name || `Node ${peerId.substring(peerId.length - 4)}`,
+                        ip: ip || 'Auto-detected',
+                        location: known?.location || (geo.city && geo.country ? `${geo.city}, ${geo.country}` : geo.city || 'Discovering...'),
+                        provider: known?.provider || geo.isp || '',
+                        color: known?.color || PEER_COLORS[newDiscoveredPeers.length % PEER_COLORS.length],
                         tier: known?.tier || 2,
                         role: peer.roles === 'AUTHORITY' ? 'Validator' : 'Full Node',
-                        bestBlock: peer.bestNumber || 0
+                        bestBlock: peer.bestNumber || 0,
+                        directConnection: peer.directConnection
                     };
 
                     newDiscoveredPeers.push(peerInfo);
                 }
 
+                // Sort: validators first, then by name
+                newDiscoveredPeers.sort((a, b) => {
+                    if (a.role === 'Validator' && b.role !== 'Validator') return -1;
+                    if (b.role === 'Validator' && a.role !== 'Validator') return 1;
+                    return a.name.localeCompare(b.name);
+                });
+
                 discoveredPeers = newDiscoveredPeers;
 
                 // Render peer list
                 container.innerHTML = discoveredPeers.map(peer => `
-                    <div class="info-row" style="padding: 8px 0; border-bottom: 1px solid var(--bg-surface);">
+                    <div class="info-row" style="padding: 8px 0; border-bottom: 1px solid var(--bg-surface); opacity: ${peer.directConnection ? '1' : '0.7'};">
                         <div style="display: flex; justify-content: space-between; width: 100%;">
                             <span style="font-size: 12px; font-family: 'Orbitron', monospace;">
                                 <span style="color: ${peer.color}; font-weight: 600;">${peer.name}</span>
-                                <span style="color: var(--text-muted); font-size: 10px; margin-left: 8px;">${peer.peerId.substring(0, 12)}...</span>
+                                ${!peer.directConnection ? '<span style="color: var(--text-muted); font-size: 9px; margin-left: 4px;">(via network)</span>' : ''}
                             </span>
                             <span style="color: ${peer.role === 'Validator' ? 'var(--accent-success)' : 'var(--text-muted)'}; font-size: 10px; font-weight: ${peer.role === 'Validator' ? 'bold' : 'normal'};">
-                                ${peer.role === 'Validator' ? 'VALIDATOR' : 'FULL NODE'}
+                                ${peer.role === 'Validator' ? 'VALIDATOR' : 'NODE'}
                             </span>
                         </div>
                         <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">
@@ -3215,11 +3255,7 @@
 
             } catch (e) {
                 discoveredPeers = [];
-                container.innerHTML = `
-                    <div class="info-row">
-                        <span class="info-label" style="color: var(--accent-danger);">Error: ${e.message}</span>
-                    </div>
-                `;
+                container.innerHTML = `<div class="info-row"><span class="info-label" style="color: var(--accent-danger);">Error: ${e.message}</span></div>`;
             }
         }
 
