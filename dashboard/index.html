@@ -686,6 +686,8 @@
         <div class="lcars-sidebar">
             <div class="sidebar-accent"></div>
             <button class="nav-btn active" onclick="showPanel('status')">STATUS</button>
+            <button class="nav-btn" onclick="showPanel('transfer')">TRANSFER</button>
+            <button class="nav-btn" onclick="showPanel('faucet')">FAUCET</button>
             <button class="nav-btn" onclick="showPanel('governance')">GOVERN</button>
             <button class="nav-btn" onclick="showPanel('rewards')">REWARDS</button>
             <button class="nav-btn" onclick="showPanel('runtime')">RUNTIME</button>
@@ -780,6 +782,160 @@
                     </div>
                 </div>
 
+                <!-- TRANSFER PANEL -->
+                <div id="panel-transfer" class="panel">
+                    <h2 class="panel-title">Transfer Funds</h2>
+
+                    <!-- Validator Account Warning -->
+                    <div id="devAccountWarning" style="display: none; margin-bottom: 16px; padding: 12px; background: rgba(255, 183, 77, 0.1); border-left: 3px solid var(--accent-warning); border-radius: 4px;">
+                        <div style="color: var(--accent-warning); font-weight: 600; margin-bottom: 4px;">Account Not Funded</div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">
+                            This validator account shows 0 balance.
+                            Use the <strong>FAUCET</strong> tab to request tokens for your own address.
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Your Balance</div>
+                            <div class="stat-value gold" id="senderBalance">---</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Sender Account</div>
+                            <div class="stat-value blue" id="senderName">Alice</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Pending Txs</div>
+                            <div class="stat-value" id="pendingTxCount">0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Network Fee</div>
+                            <div class="stat-value green">~0.001 QMHY</div>
+                        </div>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Send QMHY Tokens</span>
+                    </div>
+                    <div class="info-box" style="margin-bottom: 24px;">
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label class="form-label">From Account</label>
+                            <select class="form-input" id="transferSigner" onchange="updateSenderBalance()">
+                                <option value="alice">Alice (Montreal)</option>
+                                <option value="bob">Bob (Beauharnois)</option>
+                                <option value="charlie">Charlie (Frankfurt)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label class="form-label">Recipient Address</label>
+                            <input type="text" class="form-input" id="transferRecipient" placeholder="5CT4mnE7KMeGG6MqSyVLFa7CLkyRtb8FHCafW4zUHKYh4cg6">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label class="form-label">Amount (QMHY)</label>
+                            <input type="number" class="form-input" id="transferAmount" placeholder="100" step="0.001" min="0">
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button class="btn btn-success" onclick="sendTransfer()">SEND TRANSFER</button>
+                            <button class="btn btn-secondary" onclick="updateSenderBalance()">REFRESH BALANCE</button>
+                        </div>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Quick Send to Dev Accounts</span>
+                    </div>
+                    <div class="info-box" style="margin-bottom: 24px;">
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button class="btn btn-primary btn-sm" onclick="fillRecipient('alice')">→ Alice</button>
+                            <button class="btn btn-primary btn-sm" onclick="fillRecipient('bob')">→ Bob</button>
+                            <button class="btn btn-primary btn-sm" onclick="fillRecipient('charlie')">→ Charlie</button>
+                        </div>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Transfer Console</span>
+                        <button class="btn btn-secondary btn-sm" onclick="clearTransferConsole()">CLEAR</button>
+                    </div>
+                    <div class="terminal" id="transferTerminal">
+                        <div class="terminal-line info">Transfer panel initialized</div>
+                    </div>
+                </div>
+
+                <!-- FAUCET PANEL -->
+                <div id="panel-faucet" class="panel">
+                    <h2 class="panel-title">Testnet Faucet</h2>
+
+                    <!-- Faucet Service Status -->
+                    <div class="info-box" style="margin-bottom: 24px; border-left: 3px solid var(--lcars-gold);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <div class="status-pill" id="faucetServiceStatus">
+                                <div class="dot"></div>
+                                <span class="status-pill-text" id="faucetServiceStatusText">Checking...</span>
+                            </div>
+                            <button class="btn btn-secondary btn-sm" onclick="checkFaucetService()">CHECK</button>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Faucet Service</span>
+                            <span class="info-value" style="font-size: 11px;">Proxied via /faucet (→ 51.79.26.123)</span>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Drip Amount</div>
+                            <div class="stat-value gold">100 QMHY</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Rate Limit</div>
+                            <div class="stat-value">60 seconds</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Service Status</div>
+                            <div class="stat-value" id="faucetServiceHealth">---</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Drips</div>
+                            <div class="stat-value blue" id="totalDrips">0</div>
+                        </div>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Request Testnet Tokens</span>
+                    </div>
+                    <div class="info-box" style="margin-bottom: 24px;">
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label class="form-label">Recipient Address (SS58)</label>
+                            <input type="text" class="form-input" id="faucetRecipient" placeholder="5CT4mnE7KMeGG6MqSyVLFa7CLkyRtb8FHCafW4zUHKYh4cg6">
+                        </div>
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                            <button class="btn btn-success" id="requestDripBtn" onclick="requestDrip()">REQUEST 100 QMHY</button>
+                            <button class="btn btn-secondary" onclick="checkFaucetService()">CHECK SERVICE</button>
+                        </div>
+                        <div id="faucetOfflineWarning" style="display: none; margin-top: 12px; padding: 8px; background: rgba(239, 83, 80, 0.1); border-radius: 4px; font-size: 12px; color: var(--accent-danger);">
+                            Faucet service is offline. Please try again later or contact the network operator.
+                        </div>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Generate New Account</span>
+                    </div>
+                    <div class="info-box" style="margin-bottom: 24px;">
+                        <p style="color: var(--text-secondary); margin-bottom: 12px; font-size: 13px;">
+                            Generate a new SPHINCS+ keypair. Save the seed securely - it cannot be recovered!
+                        </p>
+                        <button class="btn btn-primary" onclick="generateAccount()">GENERATE SPHINCS+ ACCOUNT</button>
+                        <div id="generatedAccount" style="margin-top: 12px;"></div>
+                    </div>
+
+                    <div class="section-title">
+                        <span>Faucet Console</span>
+                        <button class="btn btn-secondary btn-sm" onclick="clearFaucetConsole()">CLEAR</button>
+                    </div>
+                    <div class="terminal" id="faucetTerminal">
+                        <div class="terminal-line info">Faucet panel initialized</div>
+                        <div class="terminal-line info">Faucet proxied via /faucet → 51.79.26.123</div>
+                    </div>
+                </div>
+
                 <!-- GOVERNANCE PANEL -->
                 <div id="panel-governance" class="panel">
                     <h2 class="panel-title">Validator Governance</h2>
@@ -814,9 +970,9 @@
                         <div class="form-group" style="margin-bottom: 12px;">
                             <label class="form-label">Sign As</label>
                             <select class="form-input" id="proposeSigner">
-                                <option value="alice">Alice (Dev)</option>
-                                <option value="bob">Bob (Dev)</option>
-                                <option value="charlie">Charlie (Dev)</option>
+                                <option value="alice">Alice (Montreal)</option>
+                                <option value="bob">Bob (Beauharnois)</option>
+                                <option value="charlie">Charlie (Frankfurt)</option>
                             </select>
                         </div>
                         <button class="btn btn-success" onclick="proposeValidator()">SUBMIT PROPOSAL</button>
@@ -848,11 +1004,11 @@
                     <div class="stats-grid">
                         <div class="stat-card">
                             <div class="stat-label">Pending Rewards</div>
-                            <div class="stat-value gold" id="pendingRewards">0 QHM</div>
+                            <div class="stat-value gold" id="pendingRewards">0 QMHY</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-label">Total Staked</div>
-                            <div class="stat-value blue" id="totalStaked">0 QHM</div>
+                            <div class="stat-value blue" id="totalStaked">0 QMHY</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-label">Certification</div>
@@ -905,14 +1061,14 @@
                         <div class="grid-2" style="gap: 16px;">
                             <div>
                                 <div class="form-group">
-                                    <label class="form-label">Stake Amount (QHM)</label>
+                                    <label class="form-label">Stake Amount (QMHY)</label>
                                     <input type="number" class="form-input" id="stakeAmount" placeholder="1000">
                                 </div>
                                 <button class="btn btn-success" onclick="stakeTokens()">STAKE</button>
                             </div>
                             <div>
                                 <div class="form-group">
-                                    <label class="form-label">Unstake Amount (QHM)</label>
+                                    <label class="form-label">Unstake Amount (QMHY)</label>
                                     <input type="number" class="form-input" id="unstakeAmount" placeholder="1000">
                                 </div>
                                 <button class="btn btn-danger" onclick="requestUnstake()">REQUEST UNSTAKE</button>
@@ -971,8 +1127,8 @@
                             <input type="password" class="form-input" id="sudoSecretKey" placeholder="alice, bob, charlie, or paste 128-byte hex key">
                         </div>
                         <div style="font-size: 11px; color: var(--text-muted);">
-                            Dev accounts: <code style="color: var(--lcars-gold);">alice</code>, <code style="color: var(--lcars-gold);">bob</code>, <code style="color: var(--lcars-gold);">charlie</code> |
-                            Production: paste full 128-byte SPHINCS+ secret key
+                            Validator aliases: <code style="color: var(--lcars-gold);">alice</code>, <code style="color: var(--lcars-gold);">bob</code>, <code style="color: var(--lcars-gold);">charlie</code> |
+                            Or paste full 128-byte SPHINCS+ secret key (hex)
                         </div>
                     </div>
 
@@ -2556,6 +2712,316 @@
         // See checkKeystore(), generateKey(), injectKey() at ~lines 2061-2167
 
         // ===========================================
+        // TRANSFER FUNCTIONS
+        // ===========================================
+
+        // Pallet index for Balances (from runtime construct_runtime!)
+        const BALANCES_INDEX = 5;
+
+        // Production validator SS58 addresses (genesis accounts)
+        const DEV_ADDRESSES = {
+            alice: '5GDGYeQveNfCqfjqpiCB8pPoLb42yqnsgmzjLHZmWkqh1ToY',
+            bob: '5CT4mnE7KMeGG6MqSyVLFa7CLkyRtb8FHCafW4zUHKYh4cg6',
+            charlie: '5FMbuNfb3gYxLHZX7VXhBEMy3mcuUHvb6hFyQCVrFwr4Fjb5'
+        };
+
+        function transferLog(message, type = 'info') {
+            const terminal = document.getElementById('transferTerminal');
+            const line = document.createElement('div');
+            line.className = `terminal-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+            while (terminal.children.length > 50) terminal.removeChild(terminal.firstChild);
+        }
+
+        function clearTransferConsole() {
+            document.getElementById('transferTerminal').innerHTML = '<div class="terminal-line info">Console cleared</div>';
+        }
+
+        function fillRecipient(account) {
+            const addr = DEV_ADDRESSES[account];
+            if (addr) {
+                document.getElementById('transferRecipient').value = addr;
+                transferLog(`Filled recipient: ${account} (${addr.substring(0, 20)}...)`, 'info');
+            }
+        }
+
+        async function updateSenderBalance() {
+            const signer = document.getElementById('transferSigner').value;
+            document.getElementById('senderName').textContent = signer.charAt(0).toUpperCase() + signer.slice(1);
+
+            try {
+                const addr = DEV_ADDRESSES[signer];
+                transferLog(`Fetching balance for ${signer}...`, 'info');
+
+                // Use gateway_balance RPC (from transaction_gateway.rs)
+                const balance = await rpc('gateway_balance', [addr]);
+                if (balance !== undefined && balance !== null) {
+                    // Balance is returned as string in smallest units (18 decimals)
+                    const balanceBigInt = BigInt(balance);
+                    const qmhy = Number(balanceBigInt / BigInt(1_000_000_000_000_000_000));
+                    document.getElementById('senderBalance').textContent = `${qmhy.toLocaleString()} QMHY`;
+                    transferLog(`Balance: ${qmhy.toLocaleString()} QMHY`, 'info');
+
+                    // Show warning if balance is 0
+                    const warningDiv = document.getElementById('devAccountWarning');
+                    if (balanceBigInt === 0n) {
+                        warningDiv.style.display = 'block';
+                        transferLog('Account shows 0 balance - use faucet', 'warning');
+                    } else {
+                        warningDiv.style.display = 'none';
+                    }
+                }
+            } catch (e) {
+                transferLog(`Balance query failed: ${e.message}`, 'error');
+                document.getElementById('senderBalance').textContent = '---';
+            }
+        }
+
+        async function sendTransfer() {
+            const signer = document.getElementById('transferSigner').value;
+            const recipient = document.getElementById('transferRecipient').value.trim();
+            const amountStr = document.getElementById('transferAmount').value;
+
+            if (!recipient) {
+                transferLog('Please enter a recipient address', 'error');
+                return;
+            }
+
+            if (!amountStr || parseFloat(amountStr) <= 0) {
+                transferLog('Please enter a valid amount', 'error');
+                return;
+            }
+
+            const amount = parseFloat(amountStr);
+            const fromAddr = DEV_ADDRESSES[signer];
+
+            transferLog(`Initiating transfer of ${amount} QMHY...`, 'warning');
+            transferLog(`From: ${signer} (${fromAddr.substring(0, 12)}...)`, 'info');
+            transferLog(`To: ${recipient.substring(0, 20)}...`, 'info');
+
+            try {
+                // Get nonce and genesis hash
+                transferLog('Getting account nonce...', 'info');
+                const nonce = await rpc('gateway_nonce', [fromAddr]);
+                transferLog(`Nonce: ${nonce}`, 'info');
+
+                const genesisHash = await rpc('gateway_genesisHash', []);
+                transferLog(`Genesis: ${genesisHash.substring(0, 20)}...`, 'info');
+
+                // Convert amount to smallest units (18 decimals)
+                const amountPlanck = BigInt(Math.floor(amount * 1_000_000_000_000_000_000));
+
+                // Build transaction request
+                const txRequest = {
+                    from: fromAddr,
+                    to: recipient,
+                    amount: amountPlanck.toString(),
+                    nonce: nonce,
+                    genesisHash: genesisHash,
+                    secretKey: '0x' + DEV_ACCOUNTS[signer]  // Dev account seed
+                };
+
+                transferLog('Submitting SPHINCS+ signed transaction...', 'warning');
+
+                // Submit via gateway_submit
+                const result = await rpc('gateway_submit', [txRequest]);
+
+                if (result && result.hash) {
+                    transferLog(`✓ Transfer submitted!`, 'info');
+                    transferLog(`TX Hash: ${result.hash}`, 'info');
+                    if (result.status) {
+                        transferLog(`Status: ${result.status}`, 'info');
+                    }
+
+                    // Refresh balance after block confirmation (~6 seconds)
+                    transferLog('Waiting for block confirmation...', 'warning');
+                    setTimeout(() => {
+                        updateSenderBalance();
+                        transferLog('Balance updated', 'info');
+                    }, 6000);
+                } else {
+                    transferLog('Transfer submitted but no hash returned', 'warning');
+                    transferLog(JSON.stringify(result), 'info');
+                }
+            } catch (e) {
+                transferLog(`Error: ${e.message}`, 'error');
+                if (e.message.includes('nonce')) {
+                    transferLog('Hint: Nonce may be stale. Wait for previous tx to confirm.', 'warning');
+                }
+            }
+        }
+
+        // ===========================================
+        // FAUCET FUNCTIONS
+        // ===========================================
+
+        // Use proxied faucet to avoid mixed content (HTTPS->HTTP) issues
+        const FAUCET_URL = '/faucet';
+        const FAUCET_DRIP_AMOUNT = 100; // QMHY
+        const FAUCET_RATE_LIMIT_MS = 60000; // 1 minute
+        let lastDripTime = {};
+        let totalDripCount = 0;
+        let faucetOnline = false;
+
+        function faucetLog(message, type = 'info') {
+            const terminal = document.getElementById('faucetTerminal');
+            const line = document.createElement('div');
+            line.className = `terminal-line ${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            terminal.appendChild(line);
+            terminal.scrollTop = terminal.scrollHeight;
+            while (terminal.children.length > 50) terminal.removeChild(terminal.firstChild);
+        }
+
+        function clearFaucetConsole() {
+            document.getElementById('faucetTerminal').innerHTML = '<div class="terminal-line info">Console cleared</div>';
+        }
+
+        function updateFaucetStatus(online, message = '') {
+            const statusPill = document.getElementById('faucetServiceStatus');
+            const statusText = document.getElementById('faucetServiceStatusText');
+            const healthDisplay = document.getElementById('faucetServiceHealth');
+            const warningDiv = document.getElementById('faucetOfflineWarning');
+            const requestBtn = document.getElementById('requestDripBtn');
+
+            faucetOnline = online;
+
+            if (online) {
+                statusPill.className = 'status-pill online';
+                statusText.textContent = 'ONLINE';
+                healthDisplay.textContent = message || 'Ready';
+                healthDisplay.className = 'stat-value green';
+                warningDiv.style.display = 'none';
+                requestBtn.disabled = false;
+                requestBtn.style.opacity = '1';
+            } else {
+                statusPill.className = 'status-pill offline';
+                statusText.textContent = 'OFFLINE';
+                healthDisplay.textContent = 'Unavailable';
+                healthDisplay.className = 'stat-value';
+                healthDisplay.style.color = 'var(--accent-danger)';
+                warningDiv.style.display = 'block';
+                requestBtn.disabled = true;
+                requestBtn.style.opacity = '0.5';
+            }
+        }
+
+        async function checkFaucetService() {
+            faucetLog('Checking faucet service status...', 'info');
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                const response = await fetch(`${FAUCET_URL}/health`, {
+                    method: 'GET',
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    updateFaucetStatus(true, `Block: ${data.block_height || 'N/A'}`);
+                    faucetLog(`Faucet online - ${data.validators_online || 0} validators`, 'info');
+                } else {
+                    updateFaucetStatus(false);
+                    faucetLog(`Faucet returned error: ${response.status}`, 'error');
+                }
+            } catch (e) {
+                updateFaucetStatus(false);
+                if (e.name === 'AbortError') {
+                    faucetLog('Faucet service timeout - service may be down', 'error');
+                } else {
+                    faucetLog(`Faucet check failed: ${e.message}`, 'error');
+                }
+            }
+        }
+
+        async function requestDrip() {
+            const recipient = document.getElementById('faucetRecipient').value.trim();
+
+            if (!recipient) {
+                faucetLog('Please enter a recipient address', 'error');
+                return;
+            }
+
+            // Validate SS58 format (starts with 5, ~48 chars)
+            if (!recipient.startsWith('5') || recipient.length < 45 || recipient.length > 50) {
+                faucetLog('Invalid address format. Must be SS58 (starts with 5)', 'error');
+                return;
+            }
+
+            // Check rate limit
+            const now = Date.now();
+            if (lastDripTime[recipient] && (now - lastDripTime[recipient]) < FAUCET_RATE_LIMIT_MS) {
+                const waitSecs = Math.ceil((FAUCET_RATE_LIMIT_MS - (now - lastDripTime[recipient])) / 1000);
+                faucetLog(`Rate limited. Wait ${waitSecs} seconds.`, 'error');
+                return;
+            }
+
+            faucetLog(`Requesting ${FAUCET_DRIP_AMOUNT} QMHY for ${recipient.substring(0, 15)}...`, 'warning');
+
+            try {
+                const response = await fetch(`${FAUCET_URL}/drip`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: recipient })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    faucetLog(`Drip sent! TX: ${result.tx_hash || 'pending'}`, 'info');
+                    faucetLog(`Amount: ${result.amount || '100 QMHY'}`, 'info');
+
+                    // Update rate limit and counter
+                    lastDripTime[recipient] = now;
+                    totalDripCount++;
+                    document.getElementById('totalDrips').textContent = totalDripCount;
+                } else {
+                    faucetLog(`Drip failed: ${result.error || result.message || 'Unknown error'}`, 'error');
+                }
+            } catch (e) {
+                faucetLog(`Error: ${e.message}`, 'error');
+                faucetLog('Faucet service may be offline. Check status.', 'warning');
+                updateFaucetStatus(false);
+            }
+        }
+
+        async function generateAccount() {
+            faucetLog('Generating new SPHINCS+ account...', 'warning');
+
+            // Generate random 48-byte seed
+            const seedArray = new Uint8Array(48);
+            crypto.getRandomValues(seedArray);
+            const seedHex = Array.from(seedArray).map(b => b.toString(16).padStart(2, '0')).join('');
+
+            // For a proper address we'd need to derive the SPHINCS+ public key and hash it
+            // This is a simplified version - the real address would come from the node
+            // For demo purposes, show the seed and note that proper derivation is needed
+
+            const resultDiv = document.getElementById('generatedAccount');
+            resultDiv.innerHTML = `
+                <div style="background: var(--bg-elevated); padding: 12px; border-radius: 8px; margin-top: 12px;">
+                    <div style="margin-bottom: 8px;">
+                        <span style="color: var(--text-muted); font-size: 11px;">SEED (SAVE SECURELY!)</span>
+                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; word-break: break-all; color: var(--accent-warning); margin-top: 4px;">
+                            ${seedHex}
+                        </div>
+                    </div>
+                    <div style="color: var(--accent-danger); font-size: 11px; margin-top: 8px;">
+                        ⚠ Use this seed with gateway_submit to derive your address on first transaction
+                    </div>
+                    <button class="btn btn-secondary btn-sm" style="margin-top: 8px;" onclick="navigator.clipboard.writeText('${seedHex}')">COPY SEED</button>
+                </div>
+            `;
+
+            faucetLog('Generated 48-byte SPHINCS+ seed', 'info');
+            faucetLog('Use seed with first transaction to derive address', 'info');
+        }
+
+        // ===========================================
         // GOVERNANCE FUNCTIONS
         // ===========================================
 
@@ -2775,8 +3241,8 @@
                 ]);
 
                 if (rewardsInfo) {
-                    document.getElementById('pendingRewards').textContent = rewardsInfo.pending_rewards || '0 QHM';
-                    document.getElementById('totalStaked').textContent = rewardsInfo.total_staked || '0 QHM';
+                    document.getElementById('pendingRewards').textContent = rewardsInfo.pending_rewards || '0 QMHY';
+                    document.getElementById('totalStaked').textContent = rewardsInfo.total_staked || '0 QMHY';
                     document.getElementById('certLevel').textContent = rewardsInfo.certification_level || 'Uncertified';
                     document.getElementById('rewardMultiplier').textContent = rewardsInfo.reward_multiplier || '70%';
                     rewardsLog('Rewards data refreshed', 'info');
@@ -2807,7 +3273,7 @@
                 return;
             }
 
-            rewardsLog(`Staking ${amount} QHM...`, 'warning');
+            rewardsLog(`Staking ${amount} QMHY...`, 'warning');
 
             try {
                 // Encode stake call: ValidatorRewards::stake(amount)
@@ -2840,7 +3306,7 @@
                 return;
             }
 
-            rewardsLog(`Requesting unstake of ${amount} QHM...`, 'warning');
+            rewardsLog(`Requesting unstake of ${amount} QMHY...`, 'warning');
             rewardsLog('100 block cooldown will apply', 'info');
 
             try {
@@ -2899,11 +3365,12 @@
         // NETWORK MESH VISUALIZATION
         // ===========================================
 
-        // Known validator data (bootstrap nodes)
+        // Known validator data (bootstrap nodes + approved validators)
         const KNOWN_VALIDATORS = {
             '12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp': { name: 'Alice', ip: '51.79.26.123', location: 'Montreal, Canada', provider: 'OVH', color: '#ff9966', tier: 1 },
             '12D3KooWHdiAxVd8uMQR1hGWXccidmfCwLqcMpGwR6QcTP6QRMuD': { name: 'Bob', ip: '51.79.26.168', location: 'Beauharnois, Canada', provider: 'OVH', color: '#66ccff', tier: 1 },
-            '12D3KooWSCufgHzV4fCwRijfH2k3abrpAJxTKxEvN1FDuRXA2U9x': { name: 'Charlie', ip: '209.38.225.4', location: 'Frankfurt, Germany', provider: 'DigitalOcean', color: '#99ff99', tier: 1 }
+            '12D3KooWSCufgHzV4fCwRijfH2k3abrpAJxTKxEvN1FDuRXA2U9x': { name: 'Charlie', ip: '209.38.225.4', location: 'Frankfurt, Germany', provider: 'DigitalOcean', color: '#99ff99', tier: 1 },
+            '12D3KooWAZF2rTG2mVUBkaUAhdJ71EDgMDvCU1VZiPTpJVj7cVi1': { name: 'Edwin', ip: null, location: 'Africa', provider: 'Community', color: '#ff66cc', tier: 2 }
         };
 
         // Dynamic colors for discovered peers
@@ -3003,22 +3470,35 @@
                 };
             });
 
-            // Draw connections from YOU to all connected peers
+            // Draw connections from YOU to peers
+            // Solid lines for direct connections, dotted for known but not connected
             ctx.lineWidth = 2;
             const localPos = nodePositions.find(p => p.isLocal);
-            let linkCount = 0;
+            let directLinkCount = 0;
 
             if (localPos) {
                 nodePositions.forEach((pos, i) => {
                     if (pos.isLocal) return;
-                    linkCount++;
 
-                    // Animated connection line
+                    const isDirectConnection = pos.node.directConnection === true;
+                    if (isDirectConnection) directLinkCount++;
+
+                    // Connection line style based on connection status
                     const gradient = ctx.createLinearGradient(localPos.x, localPos.y, pos.x, pos.y);
-                    gradient.addColorStop(0, LOCAL_NODE.color + 'cc');
-                    gradient.addColorStop(1, pos.node.color + 'cc');
+                    if (isDirectConnection) {
+                        // Solid bright line for direct connections
+                        gradient.addColorStop(0, LOCAL_NODE.color + 'cc');
+                        gradient.addColorStop(1, pos.node.color + 'cc');
+                        ctx.lineWidth = 3;
+                        ctx.setLineDash([]);
+                    } else {
+                        // Dotted dim line for known but not connected
+                        gradient.addColorStop(0, LOCAL_NODE.color + '40');
+                        gradient.addColorStop(1, pos.node.color + '40');
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([5, 5]);
+                    }
                     ctx.strokeStyle = gradient;
-                    ctx.lineWidth = 3;
 
                     ctx.beginPath();
                     ctx.moveTo(localPos.x, localPos.y);
@@ -3026,15 +3506,18 @@
                     const midY = (localPos.y + pos.y) / 2 - 15;
                     ctx.quadraticCurveTo(midX, midY, pos.x, pos.y);
                     ctx.stroke();
+                    ctx.setLineDash([]); // Reset
 
-                    // Animated data packet
-                    const packetPos = (time * 1.5 + i * 0.3) % 1;
-                    const px = localPos.x + (pos.x - localPos.x) * packetPos;
-                    const py = localPos.y + (pos.y - localPos.y) * packetPos - Math.sin(packetPos * Math.PI) * 15;
-                    ctx.fillStyle = '#ffffff';
-                    ctx.beginPath();
-                    ctx.arc(px, py, 3, 0, Math.PI * 2);
-                    ctx.fill();
+                    // Animated data packet only for direct connections
+                    if (isDirectConnection) {
+                        const packetPos = (time * 1.5 + i * 0.3) % 1;
+                        const px = localPos.x + (pos.x - localPos.x) * packetPos;
+                        const py = localPos.y + (pos.y - localPos.y) * packetPos - Math.sin(packetPos * Math.PI) * 15;
+                        ctx.fillStyle = '#ffffff';
+                        ctx.beginPath();
+                        ctx.arc(px, py, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
                 });
             }
 
@@ -3084,12 +3567,12 @@
             ctx.textAlign = 'left';
             ctx.fillText('NETWORK MESH', 10, 25);
 
-            // Connection status
-            const peerCount = discoveredPeers.length;
-            ctx.fillStyle = peerCount >= 2 ? '#66ff66' : (peerCount >= 1 ? '#ffcc00' : '#ff4444');
+            // Show validators in network (discovered peers are validators, not direct connections)
+            const validatorCount = discoveredPeers.length;
+            ctx.fillStyle = validatorCount >= 2 ? '#66ff66' : (validatorCount >= 1 ? '#ffcc00' : '#ff4444');
             ctx.font = '11px JetBrains Mono, monospace';
             ctx.textAlign = 'right';
-            ctx.fillText(`${peerCount} PEERS CONNECTED`, width - 10, 25);
+            ctx.fillText(`${validatorCount} VALIDATORS`, width - 10, 25);
 
             // Continue animation
             networkAnimationFrame = requestAnimationFrame(drawNetworkMesh);
@@ -3131,8 +3614,14 @@
         }
 
         // Production validator RPC endpoints for network-wide discovery
-        const VALIDATOR_RPCS = [
-            'http://51.79.26.123:9944',  // Alice
+        // Use proxy endpoints when running via dashboard (avoids CORS issues)
+        const isLocalDashboard = window.location.port === '8080' || window.location.pathname.includes('dashboard');
+        const VALIDATOR_RPCS = isLocalDashboard ? [
+            '/rpc/alice',   // Proxied to 51.79.26.123:9944
+            '/rpc/bob',     // Proxied to 51.79.26.168:9944
+            '/rpc/charlie'  // Proxied to 209.38.225.4:9944
+        ] : [
+            'http://51.79.26.123:9944',  // Alice - direct (for standalone)
             'http://51.79.26.168:9944',  // Bob
             'http://209.38.225.4:9944'   // Charlie
         ];
@@ -3204,17 +3693,27 @@
                     let ip = known?.ip || null;
 
                     // Get geolocation if we have an IP
-                    let geo = { city: 'Discovering...', country: '', isp: '' };
+                    let geo = { city: '', country: '', isp: '' };
                     if (ip) {
                         geo = await geolocateIP(ip);
+                    }
+
+                    // Determine location - use known location, or geo lookup, or "Behind NAT"
+                    let locationStr = known?.location || '';
+                    if (!locationStr && geo.city && geo.country) {
+                        locationStr = `${geo.city}, ${geo.country}`;
+                    } else if (!locationStr && geo.city) {
+                        locationStr = geo.city;
+                    } else if (!locationStr) {
+                        locationStr = peer.roles === 'AUTHORITY' ? 'Community Validator' : 'Behind NAT';
                     }
 
                     // Build peer info
                     const peerInfo = {
                         peerId: peerId,
                         name: known?.name || `Node ${peerId.substring(peerId.length - 4)}`,
-                        ip: ip || 'Auto-detected',
-                        location: known?.location || (geo.city && geo.country ? `${geo.city}, ${geo.country}` : geo.city || 'Discovering...'),
+                        ip: ip || 'Private',
+                        location: locationStr,
                         provider: known?.provider || geo.isp || '',
                         color: known?.color || PEER_COLORS[newDiscoveredPeers.length % PEER_COLORS.length],
                         tier: known?.tier || 2,
@@ -3395,6 +3894,9 @@
 
             // Initialize rewards panel
             refreshRewards();
+
+            // Check faucet service status
+            checkFaucetService();
 
             // Check quantum status
             updateQuantumStatus();
