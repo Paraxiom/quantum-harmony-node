@@ -801,12 +801,12 @@
                             <div class="stat-value gold" id="senderBalance">---</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-label">Sender Account</div>
-                            <div class="stat-value blue" id="senderName">Alice</div>
+                            <div class="stat-label">Key Status</div>
+                            <div class="stat-value blue" id="keyStatus">No Key</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-label">Pending Txs</div>
-                            <div class="stat-value" id="pendingTxCount">0</div>
+                            <div class="stat-label">Signature</div>
+                            <div class="stat-value">SPHINCS+</div>
                         </div>
                         <div class="stat-card">
                             <div class="stat-label">Network Fee</div>
@@ -819,12 +819,15 @@
                     </div>
                     <div class="info-box" style="margin-bottom: 24px;">
                         <div class="form-group" style="margin-bottom: 12px;">
-                            <label class="form-label">From Account</label>
-                            <select class="form-input" id="transferSigner" onchange="updateSenderBalance()">
-                                <option value="alice">Alice (Montreal)</option>
-                                <option value="bob">Bob (Beauharnois)</option>
-                                <option value="charlie">Charlie (Frankfurt)</option>
-                            </select>
+                            <label class="form-label">Your Secret Key</label>
+                            <input type="password" class="form-input" id="transferSecretKey" placeholder="Paste 48-byte seed (hex) or 128-byte secret key" onchange="updateSenderFromKey()">
+                            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+                                Your key is used locally to sign transactions. Never share it.
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 12px;">
+                            <label class="form-label">Your Address (derived from key)</label>
+                            <input type="text" class="form-input" id="transferSenderAddress" placeholder="Will be derived from secret key" readonly style="background: var(--bg-void);">
                         </div>
                         <div class="form-group" style="margin-bottom: 12px;">
                             <label class="form-label">Recipient Address</label>
@@ -836,18 +839,21 @@
                         </div>
                         <div style="display: flex; gap: 12px;">
                             <button class="btn btn-success" onclick="sendTransfer()">SEND TRANSFER</button>
-                            <button class="btn btn-secondary" onclick="updateSenderBalance()">REFRESH BALANCE</button>
+                            <button class="btn btn-secondary" onclick="updateSenderBalance()">CHECK BALANCE</button>
                         </div>
                     </div>
 
                     <div class="section-title">
-                        <span>Quick Send to Dev Accounts</span>
+                        <span>Quick Fill Recipient</span>
                     </div>
                     <div class="info-box" style="margin-bottom: 24px;">
                         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button class="btn btn-primary btn-sm" onclick="fillRecipient('alice')">→ Alice</button>
-                            <button class="btn btn-primary btn-sm" onclick="fillRecipient('bob')">→ Bob</button>
-                            <button class="btn btn-primary btn-sm" onclick="fillRecipient('charlie')">→ Charlie</button>
+                            <button class="btn btn-primary btn-sm" onclick="fillRecipient('alice')">Alice</button>
+                            <button class="btn btn-primary btn-sm" onclick="fillRecipient('bob')">Bob</button>
+                            <button class="btn btn-primary btn-sm" onclick="fillRecipient('charlie')">Charlie</button>
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+                            Quick fill with validator addresses for testing
                         </div>
                     </div>
 
@@ -2747,18 +2753,76 @@
             }
         }
 
-        async function updateSenderBalance() {
-            const signer = document.getElementById('transferSigner').value;
-            document.getElementById('senderName').textContent = signer.charAt(0).toUpperCase() + signer.slice(1);
+        // Get the secret key from input, normalizing format
+        function getTransferSecretKey() {
+            let key = document.getElementById('transferSecretKey').value.trim();
+            // Remove 0x prefix if present
+            if (key.startsWith('0x')) key = key.substring(2);
+            return key;
+        }
+
+        // Derive address from secret key using gateway RPC
+        async function updateSenderFromKey() {
+            const secretKey = getTransferSecretKey();
+            const keyStatusEl = document.getElementById('keyStatus');
+
+            if (!secretKey) {
+                document.getElementById('transferSenderAddress').value = '';
+                document.getElementById('senderBalance').textContent = '---';
+                keyStatusEl.textContent = 'No Key';
+                keyStatusEl.style.color = '';
+                return;
+            }
+
+            // Validate key length (48 bytes = 96 hex chars, or 128 bytes = 256 hex chars)
+            if (secretKey.length !== 96 && secretKey.length !== 256) {
+                transferLog(`Invalid key length: ${secretKey.length} hex chars. Expected 96 (seed) or 256 (full key)`, 'error');
+                keyStatusEl.textContent = 'Invalid';
+                keyStatusEl.style.color = 'var(--accent-danger)';
+                return;
+            }
+
+            // Update status based on key type
+            if (secretKey.length === 96) {
+                keyStatusEl.textContent = '48B Seed';
+            } else {
+                keyStatusEl.textContent = '128B Key';
+            }
+            keyStatusEl.style.color = 'var(--accent-success)';
+
+            transferLog('Deriving address from key...', 'info');
 
             try {
-                const addr = DEV_ADDRESSES[signer];
-                transferLog(`Fetching balance for ${signer}...`, 'info');
+                // Use gateway to derive address from key
+                const result = await rpc('gateway_deriveAddress', ['0x' + secretKey]);
+                if (result) {
+                    document.getElementById('transferSenderAddress').value = result;
+                    transferLog(`Address: ${result.substring(0, 20)}...`, 'info');
+                    // Now fetch balance for this address
+                    await updateSenderBalance();
+                }
+            } catch (e) {
+                // If gateway_deriveAddress doesn't exist, show message
+                transferLog(`Address derivation: ${e.message}`, 'warning');
+                transferLog('Enter address manually or check balance after first tx', 'info');
+                document.getElementById('transferSenderAddress').value = 'Unable to derive - submit tx to see address';
+            }
+        }
 
-                // Use gateway_balance RPC (from transaction_gateway.rs)
-                const balance = await rpc('gateway_balance', [addr]);
+        async function updateSenderBalance() {
+            const address = document.getElementById('transferSenderAddress').value.trim();
+
+            if (!address || address.includes('Unable') || !address.startsWith('5')) {
+                document.getElementById('senderBalance').textContent = '---';
+                return;
+            }
+
+            try {
+                transferLog(`Fetching balance for ${address.substring(0, 15)}...`, 'info');
+
+                // Use gateway_balance RPC
+                const balance = await rpc('gateway_balance', [address]);
                 if (balance !== undefined && balance !== null) {
-                    // Balance is returned as string in smallest units (18 decimals)
                     const balanceBigInt = BigInt(balance);
                     const qmhy = Number(balanceBigInt / BigInt(1_000_000_000_000_000_000));
                     document.getElementById('senderBalance').textContent = `${qmhy.toLocaleString()} QMHY`;
@@ -2768,7 +2832,7 @@
                     const warningDiv = document.getElementById('devAccountWarning');
                     if (balanceBigInt === 0n) {
                         warningDiv.style.display = 'block';
-                        transferLog('Account shows 0 balance - use faucet', 'warning');
+                        transferLog('Account shows 0 balance - use faucet to get tokens', 'warning');
                     } else {
                         warningDiv.style.display = 'none';
                     }
@@ -2780,12 +2844,27 @@
         }
 
         async function sendTransfer() {
-            const signer = document.getElementById('transferSigner').value;
+            const secretKey = getTransferSecretKey();
             const recipient = document.getElementById('transferRecipient').value.trim();
             const amountStr = document.getElementById('transferAmount').value;
 
+            if (!secretKey) {
+                transferLog('Please enter your secret key', 'error');
+                return;
+            }
+
+            if (secretKey.length !== 96 && secretKey.length !== 256) {
+                transferLog(`Invalid key length. Expected 96 (seed) or 256 (full key) hex chars`, 'error');
+                return;
+            }
+
             if (!recipient) {
                 transferLog('Please enter a recipient address', 'error');
+                return;
+            }
+
+            if (!recipient.startsWith('5')) {
+                transferLog('Invalid recipient address. Must start with 5 (SS58)', 'error');
                 return;
             }
 
@@ -2795,32 +2874,24 @@
             }
 
             const amount = parseFloat(amountStr);
-            const fromAddr = DEV_ADDRESSES[signer];
 
             transferLog(`Initiating transfer of ${amount} QMHY...`, 'warning');
-            transferLog(`From: ${signer} (${fromAddr.substring(0, 12)}...)`, 'info');
             transferLog(`To: ${recipient.substring(0, 20)}...`, 'info');
 
             try {
-                // Get nonce and genesis hash
-                transferLog('Getting account nonce...', 'info');
-                const nonce = await rpc('gateway_nonce', [fromAddr]);
-                transferLog(`Nonce: ${nonce}`, 'info');
-
+                // Get genesis hash
                 const genesisHash = await rpc('gateway_genesisHash', []);
                 transferLog(`Genesis: ${genesisHash.substring(0, 20)}...`, 'info');
 
                 // Convert amount to smallest units (18 decimals)
                 const amountPlanck = BigInt(Math.floor(amount * 1_000_000_000_000_000_000));
 
-                // Build transaction request
+                // Build transaction request - gateway will derive address from key
                 const txRequest = {
-                    from: fromAddr,
                     to: recipient,
                     amount: amountPlanck.toString(),
-                    nonce: nonce,
                     genesisHash: genesisHash,
-                    secretKey: '0x' + DEV_ACCOUNTS[signer]  // Dev account seed
+                    secretKey: '0x' + secretKey
                 };
 
                 transferLog('Submitting SPHINCS+ signed transaction...', 'warning');
@@ -2831,6 +2902,10 @@
                 if (result && result.hash) {
                     transferLog(`✓ Transfer submitted!`, 'info');
                     transferLog(`TX Hash: ${result.hash}`, 'info');
+                    if (result.from) {
+                        document.getElementById('transferSenderAddress').value = result.from;
+                        transferLog(`From: ${result.from.substring(0, 20)}...`, 'info');
+                    }
                     if (result.status) {
                         transferLog(`Status: ${result.status}`, 'info');
                     }
@@ -2847,8 +2922,12 @@
                 }
             } catch (e) {
                 transferLog(`Error: ${e.message}`, 'error');
-                if (e.message.includes('nonce')) {
+                if (e.message.includes('BadProof')) {
+                    transferLog('Hint: Invalid key or signature mismatch', 'warning');
+                } else if (e.message.includes('nonce')) {
                     transferLog('Hint: Nonce may be stale. Wait for previous tx to confirm.', 'warning');
+                } else if (e.message.includes('funds')) {
+                    transferLog('Hint: Insufficient balance for transfer + fees', 'warning');
                 }
             }
         }
